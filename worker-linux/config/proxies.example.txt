@@ -1,0 +1,24 @@
+# ==============================================================================
+# Android Box - Proksi Konfiguratsiyasi (Namuna)
+# ==============================================================================
+# Har bir qator tegishli tartib raqamidagi Android instansiyasiga biriktiriladi.
+#
+# Qo'llab-quvvatlanadigan formatlar:
+#   socks5://username:password@ip:port
+#   socks5://ip:port
+#   http://username:password@ip:port
+#
+# Izoh: Bo'sh qoldirilsa yoki '#' bilan boshlansa, instansiya xost internetidan foydalanadi.
+# ==============================================================================
+
+# 1-instansiya uchun proksi (ADB port 5555)
+socks5://proxy_user1:proxy_pass1@185.220.100.1:1080
+
+# 2-instansiya uchun proksi (ADB port 5556)
+socks5://proxy_user2:proxy_pass2@185.220.100.2:1080
+
+# 3-instansiya uchun proksi (ADB port 5557)
+socks5://proxy_user3:proxy_pass3@185.220.100.3:1080
+
+# 4-instansiya uchun proksi (ADB port 5558)
+socks5://proxy_user4:proxy_pass4@185.220.100.4:1080

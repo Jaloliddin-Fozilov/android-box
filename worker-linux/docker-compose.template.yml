@@ -1,0 +1,43 @@
+version: '3.8'
+
+# ==============================================================================
+# Android Box - ReDroid Instansiya Shabloni
+# ==============================================================================
+# Har bir instansiya alohida port va ma'lumotlar jildiga ega bo'ladi.
+# CPU va RAM cheklovlari (Resource limits) server qotib qolmasligini ta'minlaydi.
+# ==============================================================================
+
+services:
+  android_instance:
+    image: redroid/redroid:11.0.0-latest
+    container_name: ${CONTAINER_NAME}
+    privileged: true
+    restart: unless-stopped
+    ports:
+      - "${HOST_ADB_PORT}:5555"
+    volumes:
+      - ${DATA_DIR}:/data
+      - /dev/binderfs:/dev/binderfs
+    devices:
+      - /dev/kvm:/dev/kvm
+      # Agar GPU bo'lsa:
+      # - /dev/dri:/dev/dri
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1200M
+        reservations:
+          memory: 400M
+    command:
+      - androidboot.redroid_width=720
+      - androidboot.redroid_height=1280
+      - androidboot.redroid_dpi=240
+      - androidboot.redroid_fps=25
+      - androidboot.redroid_gpu_mode=auto
+      - ro.product.brand=${DEVICE_BRAND}
+      - ro.product.model=${DEVICE_MODEL}
+      - ro.product.name=${DEVICE_NAME}
+      - ro.product.device=${DEVICE_NAME}
+      - ro.product.manufacturer=${DEVICE_MANUFACTURER}
+      - ro.build.fingerprint=${DEVICE_FINGERPRINT}

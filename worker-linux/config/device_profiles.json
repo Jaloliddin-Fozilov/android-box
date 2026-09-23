@@ -1,0 +1,42 @@
+[
+  {
+    "brand": "samsung",
+    "model": "SM-G998B",
+    "device": "p3s",
+    "manufacturer": "samsung",
+    "fingerprint": "samsung/p3sxeea/p3s:12/SP1A.210812.016/G998BXXU4BVG4:user/release-keys",
+    "security_patch": "2022-08-01",
+    "release": "12",
+    "sdk": "31"
+  },
+  {
+    "brand": "google",
+    "model": "Pixel 6",
+    "device": "oriole",
+    "manufacturer": "Google",
+    "fingerprint": "google/oriole/oriole:12/SQ3A.220705.004/8836740:user/release-keys",
+    "security_patch": "2022-07-05",
+    "release": "12",
+    "sdk": "31"
+  },
+  {
+    "brand": "Xiaomi",
+    "model": "2201123G",
+    "device": "cupid",
+    "manufacturer": "Xiaomi",
+    "fingerprint": "Xiaomi/cupid_eea/cupid:12/SKQ1.211006.001/V13.0.18.0.SLCEUXM:user/release-keys",
+    "security_patch": "2022-09-01",
+    "release": "12",
+    "sdk": "31"
+  },
+  {
+    "brand": "OnePlus",
+    "model": "LE2113",
+    "device": "OnePlus9",
+    "manufacturer": "OnePlus",
+    "fingerprint": "OnePlus/LE2113_EEA/OnePlus9:12/SKQ1.210216.001/2206240200:user/release-keys",
+    "security_patch": "2022-06-05",
+    "release": "12",
+    "sdk": "31"
+  }
+]
