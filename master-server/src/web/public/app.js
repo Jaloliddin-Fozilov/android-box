@@ -238,9 +238,15 @@ function updateStats(instances) {
 }
 
 // Ekran ko'rish modali
+const BLANK_SCREEN_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns%3D"http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width%3D"720" height%3D"1280" viewBox%3D"0 0 720 1280"%3E%3Crect width%3D"720" height%3D"1280" fill%3D"%230f172a"%2F%3E%3C%2Fsvg%3E';
+
 async function openScreenModal(id, title) {
   currentActiveInstanceId = id;
   document.getElementById('screenModalTitle').textContent = `${title} (Jonli Ekran)`;
+  // Oldingi boshqa qurilmaning ekrani ko'rinib qolmasligi uchun tozalash va yuklanish animatsiyasini yoqish
+  screenImage.src = BLANK_SCREEN_PLACEHOLDER;
+  screenLoader.classList.remove('hidden');
+  isFetchingScreen = false;
   screenModal.classList.remove('hidden');
   await refreshScreenShot();
 }
@@ -252,6 +258,7 @@ const touchRippleLayer = document.getElementById('touchRippleLayer');
 
 async function refreshScreenShot() {
   if (!currentActiveInstanceId || isFetchingScreen) return;
+  const requestedId = currentActiveInstanceId;
   isFetchingScreen = true;
   const startTime = Date.now();
   const quality = screenQualitySelect ? screenQualitySelect.value : 'low';
@@ -259,11 +266,14 @@ async function refreshScreenShot() {
   try {
     const timestamp = Date.now();
     const newImg = new Image();
-    newImg.src = `/api/instances/${currentActiveInstanceId}/screenshot?quality=${quality}&t=${timestamp}`;
+    newImg.src = `/api/instances/${requestedId}/screenshot?quality=${quality}&t=${timestamp}`;
 
     newImg.onload = () => {
-      screenImage.src = newImg.src;
-      screenLoader.classList.add('hidden');
+      // Faqatgina foydalanuvchi hali ham shu qurilmada tursa ekranni yangilaymiz
+      if (currentActiveInstanceId === requestedId) {
+        screenImage.src = newImg.src;
+        screenLoader.classList.add('hidden');
+      }
       isFetchingScreen = false;
       const latency = Date.now() - startTime;
       if (screenLatency) {
@@ -279,11 +289,15 @@ async function refreshScreenShot() {
     };
 
     newImg.onerror = () => {
-      screenLoader.classList.add('hidden');
+      if (currentActiveInstanceId === requestedId) {
+        screenLoader.classList.add('hidden');
+      }
       isFetchingScreen = false;
     };
   } catch (err) {
-    screenLoader.classList.add('hidden');
+    if (currentActiveInstanceId === requestedId) {
+      screenLoader.classList.add('hidden');
+    }
     isFetchingScreen = false;
   }
 }
@@ -469,9 +483,17 @@ document.querySelectorAll('.modal-close').forEach(btn => {
     if (cmdModal) cmdModal.classList.add('hidden');
     const wModal = document.getElementById('workerModal');
     if (wModal) wModal.classList.add('hidden');
+    currentActiveInstanceId = null;
+    isFetchingScreen = false;
+    screenImage.src = BLANK_SCREEN_PLACEHOLDER;
     if (screenAutoInterval) {
       clearInterval(screenAutoInterval);
       screenAutoInterval = null;
+      const btnAuto = document.getElementById('btnScreenAuto');
+      if (btnAuto) {
+        btnAuto.classList.remove('bg-emerald-600/30', 'text-emerald-300');
+        btnAuto.classList.add('bg-indigo-600/30', 'text-indigo-300');
+      }
     }
   });
 });
