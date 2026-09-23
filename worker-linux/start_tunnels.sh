@@ -13,7 +13,7 @@ else
 fi
 START_PORT=5555
 
-DEFAULT_MASTER_URL="https://democrats-deliver-value-richardson.trycloudflare.com"
+DEFAULT_MASTER_URL="https://intl-theatre-insurance-offset.trycloudflare.com"
 TMP_DIR="/tmp/pinggy_tunnels"
 mkdir -p "$TMP_DIR"
 

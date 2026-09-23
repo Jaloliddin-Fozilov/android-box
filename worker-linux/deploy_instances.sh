@@ -99,7 +99,8 @@ for ((i=1; i<=COUNT; i++)); do
       - /dev/kvm:/dev/kvm
 EOF
 
-    if [ "$ENABLE_GPU" = true ] && [ -d /dev/dri ]; then
+    # Videokarta mavjud bo'lsa avtomatik ulash (GPU tezlatish)
+    if [ -d /dev/dri ]; then
         cat <<EOF >> "$COMPOSE_FILE"
       - /dev/dri:/dev/dri
 EOF
@@ -109,16 +110,17 @@ EOF
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1200M
+          cpus: '1.0'
+          memory: 850M
         reservations:
-          memory: 400M
+          memory: 300M
     command:
-      - androidboot.redroid_width=720
-      - androidboot.redroid_height=1280
-      - androidboot.redroid_dpi=240
-      - androidboot.redroid_fps=25
+      - androidboot.redroid_width=540
+      - androidboot.redroid_height=960
+      - androidboot.redroid_dpi=160
+      - androidboot.redroid_fps=15
       - androidboot.redroid_gpu_mode=auto
+      - androidboot.use_memfd=1
       - ro.product.brand=${BRAND}
       - ro.product.model=${MODEL}
       - ro.product.name=${DEVICE}
@@ -147,6 +149,10 @@ if ! DOCKER_API_VERSION="$DOCKER_API_VERSION" docker compose -f "$COMPOSE_FILE" 
     sudo apt-get update -y && sudo apt-get install --only-upgrade docker-ce-cli docker-compose-plugin -y 2>/dev/null || true
     docker compose -f "$COMPOSE_FILE" up -d || {
         echo "Konteynerlar to'g'ridan-to'g'ri docker run orqali ishga tushirilmoqda..."
+        DRI_OPT=""
+        if [ -d /dev/dri ]; then
+            DRI_OPT="--device /dev/dri:/dev/dri"
+        fi
         for ((i=1; i<=COUNT; i++)); do
             PORT=$((START_PORT + i - 1))
             CONTAINER_NAME="android_box_${i}"
@@ -159,11 +165,16 @@ if ! DOCKER_API_VERSION="$DOCKER_API_VERSION" docker compose -f "$COMPOSE_FILE" 
                 -v "${INSTANCE_DATA}:/data" \
                 -v "/dev/binderfs:/dev/binderfs" \
                 --device "/dev/kvm:/dev/kvm" \
+                $DRI_OPT \
+                --cpus="1.0" \
+                --memory="850M" \
                 redroid/redroid:11.0.0-latest \
-                androidboot.redroid_width=720 \
-                androidboot.redroid_height=1280 \
-                androidboot.redroid_fps=25 \
-                androidboot.redroid_gpu_mode=auto 2>/dev/null || true
+                androidboot.redroid_width=540 \
+                androidboot.redroid_height=960 \
+                androidboot.redroid_dpi=160 \
+                androidboot.redroid_fps=15 \
+                androidboot.redroid_gpu_mode=auto \
+                androidboot.use_memfd=1 2>/dev/null || true
         done
     }
 fi
