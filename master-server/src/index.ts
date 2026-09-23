@@ -10,6 +10,12 @@ import { HumanTouch } from './automation/human_touch';
 import { SocialTasks } from './automation/social_tasks';
 
 import * as fs from 'fs';
+import multer from 'multer';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+const upload = multer({ dest: '/tmp/apk_uploads/' });
 
 const app = express();
 const server = http.createServer(app);
@@ -117,8 +123,100 @@ app.post('/api/instances/:id/app', async (req: Request, res: Response) => {
   const { app: appName } = req.body;
   try {
     await tasks.openApp(inst.serial, appName);
+    broadcastLog(`[${inst.id}] ${appName.toUpperCase()} ochildi.`, 'success');
     res.json({ success: true });
   } catch (err: any) {
+    broadcastLog(`[${inst.id}] Xatolik: ${err.message}`, 'error');
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// O'rnatilgan paketlar ro'yxatini olish
+app.get('/api/instances/:id/packages', async (req: Request, res: Response) => {
+  const inst = pool.get(req.params.id);
+  if (!inst) return res.status(404).json({ error: 'Topilmadi' });
+
+  const pkgs = await adb.getInstalledPackages(inst.serial);
+  res.json({ packages: pkgs });
+});
+
+// APK o'rnatish (Fayl yuklash yoki URL orqali)
+app.post('/api/packages/install', upload.single('apkFile'), async (req: Request, res: Response) => {
+  const { apkUrl, targetScope, targetInstanceId } = req.body;
+  let localApkPath = '';
+
+  if (req.file) {
+    localApkPath = req.file.path;
+  } else if (apkUrl) {
+    broadcastLog(`[APK Installer] APK URL orqali yuklab olinmoqda: ${apkUrl}...`, 'info');
+    localApkPath = `/tmp/apk_download_${Date.now()}.apk`;
+    try {
+      await execAsync(`curl -L -s -o "${localApkPath}" "${apkUrl}"`);
+    } catch (err: any) {
+      return res.status(400).json({ error: `APK yuklab olishda xatolik: ${err.message}` });
+    }
+  } else {
+    return res.status(400).json({ error: 'Iltimos, APK fayl yuklang yoki APK URL manzilini kiriting!' });
+  }
+
+  // Nishon qurilmalarni aniqlash
+  let targets: AndroidInstance[] = [];
+  if (targetInstanceId) {
+    const inst = pool.get(targetInstanceId);
+    if (inst) targets = [inst];
+  } else if (targetScope === 'single') {
+    targets = pool.getAll().filter(i => i.status === 'online').slice(0, 1);
+  } else {
+    targets = pool.getAll().filter(i => i.status === 'online');
+  }
+
+  if (targets.length === 0) {
+    return res.status(400).json({ error: 'Birorta ham onlayn qurilma topilmadi!' });
+  }
+
+  res.json({ success: true, message: `APK ${targets.length} ta qurilmaga o'rnatilmoqda...` });
+
+  // O'rnatishni fonda bajarish
+  (async () => {
+    broadcastLog(`[APK Installer] ${targets.length} ta qurilmaga o'rnatish boshlandi...`, 'info');
+    for (const inst of targets) {
+      broadcastLog(`[${inst.id}] APK o'rnatilmoqda...`, 'info');
+      const result = await adb.installApk(inst.serial, localApkPath);
+      if (result.success) {
+        broadcastLog(`[${inst.id}] APK muvaffaqiyatli o'rnatildi! 🎉`, 'success');
+      } else {
+        broadcastLog(`[${inst.id}] APK o'rnatishda xato: ${result.message}`, 'error');
+      }
+    }
+
+    // Vaqtinchalik faylni tozalash
+    try {
+      if (fs.existsSync(localApkPath)) fs.unlinkSync(localApkPath);
+    } catch {}
+  })();
+});
+
+// Tizimni yangilash (Git pull & Server recompile)
+app.post('/api/system/update', async (_req: Request, res: Response) => {
+  broadcastLog('[System Update] Yangilanishlar tekshirilmoqda (git pull)...', 'info');
+  try {
+    const rootDir = path.join(__dirname, '../../');
+    const { stdout, stderr } = await execAsync('git pull origin main', { cwd: rootDir });
+    const output = (stdout + ' ' + stderr).trim();
+    broadcastLog(`[System Update] Git natijasi: ${output}`, 'success');
+
+    // Serverni qayta yig'ish (build)
+    if (output.includes('Updating') || output.includes('files changed')) {
+      broadcastLog('[System Update] Loyiha qayta yig\'ilmoqda (npm run build)...', 'info');
+      await execAsync('npm run build', { cwd: path.join(rootDir, 'master-server') });
+      broadcastLog('[System Update] Yangilanish muvaffaqiyatli yakunlandi!', 'success');
+    } else {
+      broadcastLog('[System Update] Tizim allaqachon eng oxirgi versiyada.', 'info');
+    }
+
+    res.json({ success: true, output });
+  } catch (err: any) {
+    broadcastLog(`[System Update] Yangilanishda xatolik: ${err.message}`, 'error');
     res.status(500).json({ error: err.message });
   }
 });

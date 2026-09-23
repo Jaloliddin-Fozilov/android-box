@@ -20,6 +20,7 @@ const logTerminal = document.getElementById('logTerminal');
 const taskModal = document.getElementById('taskModal');
 const screenModal = document.getElementById('screenModal');
 const settingsModal = document.getElementById('settingsModal');
+const apkModal = document.getElementById('apkModal');
 const screenImage = document.getElementById('screenImage');
 const screenLoader = document.getElementById('screenLoader');
 const taskTypeSelect = document.getElementById('taskType');
@@ -231,11 +232,20 @@ async function quickApp(id, app) {
       body: JSON.stringify({ app })
     });
     const data = await res.json();
-    if (data.success) {
-      addLog(`[${id}] ${app.toUpperCase()} ochildi.`, 'success');
+    if (res.ok && data.success) {
+      addLog(`[${id}] ${app.toUpperCase()} muvaffaqiyatli ochildi.`, 'success');
+      if (currentActiveInstanceId === id) {
+        setTimeout(refreshScreenShot, 2500);
+      }
+    } else {
+      addLog(`[${id}] Ogohlantirish: ${data.error || 'Ilovani ochib bo\'lmadi'}`, 'error');
+      if (data.error && data.error.includes("o'rnatilmagan")) {
+        apkModal.classList.remove('hidden');
+        addLog(`[${id}] Ilova o'rnatilmagan. Iltimos, APK o'rnatish oynasidan foydalaning.`, 'warn');
+      }
     }
   } catch (err) {
-    addLog(`[${id}] Xatolik: ` + err.message, 'error');
+    addLog(`[${id}] Tarmoq xatosi: ` + err.message, 'error');
   }
 }
 
@@ -358,6 +368,90 @@ document.getElementById('btnScreenBack').addEventListener('click', () => quickKe
 document.getElementById('btnRefresh').addEventListener('click', () => {
   addLog('Qurilmalar holati qayta tekshirilmoqda...', 'info');
   fetchInstances();
+});
+
+// APK Modali
+document.getElementById('btnOpenApkModal').addEventListener('click', () => {
+  apkModal.classList.remove('hidden');
+});
+
+// Tayyor APK havolalari
+function setPresetApk(type) {
+  const urlInput = document.getElementById('apkUrlInput');
+  if (type === 'instagram_lite') {
+    urlInput.value = 'https://d.apkpure.net/b/APK/com.instagram.lite?version=latest';
+  } else if (type === 'tiktok') {
+    urlInput.value = 'https://d.apkpure.net/b/APK/com.zhiliaoapp.musically.go?version=latest';
+  }
+}
+
+// APK o'rnatishni boshlash
+document.getElementById('btnStartApkInstall').addEventListener('click', async () => {
+  const fileInput = document.getElementById('apkFileInput');
+  const urlInput = document.getElementById('apkUrlInput');
+  const scope = document.getElementById('apkTargetScope').value;
+  const progressBox = document.getElementById('apkInstallProgress');
+
+  const file = fileInput.files[0];
+  const apkUrl = urlInput.value.trim();
+
+  if (!file && !apkUrl) {
+    alert('Iltimos, APK faylni tanlang yoki APK URL manzilini kiriting!');
+    return;
+  }
+
+  const formData = new FormData();
+  if (file) {
+    formData.append('apkFile', file);
+  } else {
+    formData.append('apkUrl', apkUrl);
+  }
+  formData.append('targetScope', scope);
+
+  progressBox.classList.remove('hidden');
+  addLog('APK fayl serverga yuklanmoqda va o\'rnatish boshlanmoqda...', 'info');
+
+  try {
+    const res = await fetch('/api/packages/install', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      addLog(`[APK Installer] ${data.message}`, 'success');
+      setTimeout(() => {
+        apkModal.classList.add('hidden');
+        progressBox.classList.add('hidden');
+        fileInput.value = '';
+        urlInput.value = '';
+      }, 1500);
+    } else {
+      progressBox.classList.add('hidden');
+      addLog(`[APK Installer] Xatolik: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    progressBox.classList.add('hidden');
+    addLog('[APK Installer] Tarmoq xatosi: ' + err.message, 'error');
+  }
+});
+
+// Tizimni yangilash (Git Update)
+document.getElementById('btnSystemUpdate').addEventListener('click', async () => {
+  if (!confirm('Tizim eng so\'nggi versiyaga yangilansinmi (git pull)?')) return;
+  addLog('[Tizim] Yangilanishlar tekshirilmoqda...', 'info');
+
+  try {
+    const res = await fetch('/api/system/update', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      addLog(`[Tizim] Natija: ${data.output}`, 'success');
+      alert(`Tizim yangilandi:\n${data.output}`);
+    } else {
+      addLog(`[Tizim] Xatolik: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    addLog('[Tizim] Yangilashda xato: ' + err.message, 'error');
+  }
 });
 
 document.getElementById('btnClearLogs').addEventListener('click', () => {

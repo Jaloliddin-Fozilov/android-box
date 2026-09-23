@@ -125,9 +125,59 @@ export class AdbManager {
   }
 
   /**
-   * Ilovani ochish
+   * Ilova o'rnatilganligini tekshirish
+   */
+  async isPackageInstalled(device: string, packageName: string): Promise<boolean> {
+    try {
+      const output = await this.shell(device, `pm path ${packageName}`);
+      return output.includes('package:');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * O'rnatilgan foydalanuvchi ilovalari ro'yxatini olish
+   */
+  async getInstalledPackages(device: string): Promise<string[]> {
+    try {
+      const output = await this.shell(device, 'pm list packages -3');
+      return output
+        .split('\n')
+        .map(line => line.replace('package:', '').trim())
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * APK faylni qurilmaga o'rnatish
+   */
+  async installApk(device: string, apkPath: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const { stdout, stderr } = await execPromise(
+        `${this.adbPath} -s ${device} install -r -g "${apkPath.replace(/"/g, '\\"')}"`
+      );
+      const combined = (stdout + ' ' + stderr).trim();
+      if (combined.includes('Success')) {
+        return { success: true, message: 'Muvaffaqiyatli o\'rnatildi' };
+      }
+      return { success: false, message: combined || 'O\'rnatishda xatolik yuz berdi' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'O\'rnatishda xatolik' };
+    }
+  }
+
+  /**
+   * Ilovani ochish (oldin o'rnatilganligini tekshiradi)
    */
   async startApp(device: string, packageName: string, activityName?: string): Promise<void> {
+    const isInstalled = await this.isPackageInstalled(device, packageName);
+    if (!isInstalled) {
+      throw new Error(`"${packageName}" ilovasi bu telefonda o'rnatilmagan! Iltimos, oldin APK o'rnating.`);
+    }
+
     if (activityName) {
       await this.shell(device, `am start -n ${packageName}/${activityName}`);
     } else {

@@ -42,14 +42,20 @@
       </div>
 
       <!-- Amallar paneli -->
-      <div class="flex items-center space-x-2.5">
-        <button id="btnRefresh" class="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center gap-1.5 border border-slate-700">
-          <i class="fa-solid fa-arrows-rotate"></i> Yangilash
+      <div class="flex items-center space-x-2">
+        <button id="btnOpenApkModal" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 transition flex items-center gap-1.5 border border-emerald-500/30">
+          <i class="fa-solid fa-box-open"></i> APK O'rnatish
+        </button>
+        <button id="btnSystemUpdate" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 border border-slate-700" title="Git va Tizimni yangilash">
+          <i class="fa-solid fa-cloud-arrow-down"></i> Tizimni Yangilash
+        </button>
+        <button id="btnRefresh" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center gap-1.5 border border-slate-700">
+          <i class="fa-solid fa-arrows-rotate"></i>
         </button>
         <button id="btnOpenTaskModal" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition flex items-center gap-1.5">
           <i class="fa-solid fa-bolt"></i> Vazifa Yuborish
         </button>
-        <button id="btnOpenSettings" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700">
+        <button id="btnOpenSettings" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700" title="Sozlamalar">
           <i class="fa-solid fa-gear"></i>
         </button>
       </div>
@@ -259,6 +265,66 @@
       <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
         <button class="modal-close px-4 py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Bekor qilish</button>
         <button id="btnSaveSettings" class="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Saqlash & Ulanish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. APK O'rnatish Modali -->
+  <div id="apkModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-box-open text-emerald-400"></i> Ilova (APK) O'rnatish Markazi
+        </h3>
+        <button class="modal-close text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1.5">1-Usul: Mac kompyuterdan APK fayl tanlash (.apk):</label>
+          <input type="file" id="apkFileInput" accept=".apk" class="w-full text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-600/20 file:text-emerald-400 hover:file:bg-emerald-600/30 border border-slate-800 rounded-lg p-1 bg-slate-950">
+        </div>
+
+        <div class="relative flex items-center justify-center">
+          <div class="border-t border-slate-800 w-full"></div>
+          <span class="bg-slate-900 px-2 text-slate-500 text-[10px] uppercase tracking-wider font-semibold">yoki</span>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">2-Usul: To'g'ridan-to'g'ri APK URL manzili:</label>
+          <input type="text" id="apkUrlInput" placeholder="https://misol.com/instagram.apk" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+          <div class="flex gap-2 mt-2">
+            <button type="button" onclick="setPresetApk('instagram_lite')" class="px-2 py-1 bg-slate-850 hover:bg-slate-800 text-[11px] text-pink-400 rounded border border-slate-700">
+              <i class="fa-brands fa-instagram mr-1"></i> Instagram Lite
+            </button>
+            <button type="button" onclick="setPresetApk('tiktok')" class="px-2 py-1 bg-slate-850 hover:bg-slate-800 text-[11px] text-cyan-400 rounded border border-slate-700">
+              <i class="fa-brands fa-tiktok mr-1"></i> TikTok Lite
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Qaysi qurilmalarga o'rnatilsin?</label>
+          <select id="apkTargetScope" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
+            <option value="all">Barcha Online qurilmalarga</option>
+            <option value="single">Faqat 1-qurilmaga (Box #1)</option>
+          </select>
+        </div>
+
+        <div id="apkInstallProgress" class="hidden p-3 bg-slate-950 rounded-lg border border-slate-800 flex items-center gap-3">
+          <i class="fa-solid fa-spinner fa-spin text-emerald-400 text-lg"></i>
+          <div>
+            <div class="font-medium text-slate-200">APK o'rnatilmoqda...</div>
+            <div class="text-[10px] text-slate-500">Iltimos kuting, bu 15-40 soniya olishi mumkin.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+        <button class="modal-close px-4 py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Yopish</button>
+        <button id="btnStartApkInstall" class="px-5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
+          <i class="fa-solid fa-download mr-1"></i> O'rnatishni Boshlash
+        </button>
       </div>
     </div>
   </div>
