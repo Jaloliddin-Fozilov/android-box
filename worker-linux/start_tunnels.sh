@@ -3,6 +3,8 @@
 # Android Box - Pinggy Auto-Renewing 24/7 Tunnel Daemon
 # ==============================================================================
 
+set +e
+
 # Argumentlarni tahlil qilish (raqam yoki URL bo'lishi mumkin)
 if [[ "$1" =~ ^https?:// ]]; then
   CUSTOM_URL="$1"
