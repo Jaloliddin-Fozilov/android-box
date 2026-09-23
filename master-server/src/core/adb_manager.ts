@@ -62,12 +62,14 @@ export class AdbManager {
   /**
    * Muayyan qurilmada shell buyrug'ini bajarish
    */
-  async shell(device: string, command: string): Promise<string> {
+  async shell(device: string, command: string, timeout = 7000): Promise<string> {
     try {
-      const { stdout } = await execPromise(`${this.adbPath} -s ${device} shell "${command.replace(/"/g, '\\"')}"`, { timeout: 5000 });
-      return stdout;
+      const { stdout, stderr } = await execPromise(`${this.adbPath} -s ${device} shell "${command.replace(/"/g, '\\"')}"`, { timeout });
+      const combined = [stdout, stderr].filter(Boolean).join('\n').trim();
+      return combined;
     } catch (err: any) {
-      return err.stdout || '';
+      const errOut = [err.stdout, err.stderr, err.message].filter(Boolean).join('\n').trim();
+      return errOut;
     }
   }
 

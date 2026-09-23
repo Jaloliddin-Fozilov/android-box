@@ -401,6 +401,9 @@ document.querySelectorAll('.modal-close').forEach(btn => {
     taskModal.classList.add('hidden');
     screenModal.classList.add('hidden');
     settingsModal.classList.add('hidden');
+    apkModal.classList.add('hidden');
+    const cmdModal = document.getElementById('commandModal');
+    if (cmdModal) cmdModal.classList.add('hidden');
     if (screenAutoInterval) {
       clearInterval(screenAutoInterval);
       screenAutoInterval = null;
@@ -710,6 +713,108 @@ document.getElementById('btnSystemUpdate').addEventListener('click', async () =>
 document.getElementById('btnClearLogs').addEventListener('click', () => {
   logTerminal.innerHTML = '<div class="text-slate-500">[Tozalandi]</div>';
 });
+
+// =============================================================================
+// Masofaviy ADB Terminal / Buyruqlar Markazi
+// =============================================================================
+const commandModal = document.getElementById('commandModal');
+const btnOpenCommandModal = document.getElementById('btnOpenCommandModal');
+const cmdInput = document.getElementById('cmdInput');
+const btnExecuteCommand = document.getElementById('btnExecuteCommand');
+const cmdPresetSelect = document.getElementById('cmdPresetSelect');
+const cmdTargetScope = document.getElementById('cmdTargetScope');
+const cmdOutput = document.getElementById('cmdOutput');
+const btnClearCmdOutput = document.getElementById('btnClearCmdOutput');
+const btnCopyCmdOutput = document.getElementById('btnCopyCmdOutput');
+
+if (btnOpenCommandModal && commandModal) {
+  btnOpenCommandModal.addEventListener('click', () => {
+    commandModal.classList.remove('hidden');
+    if (cmdInput) cmdInput.focus();
+  });
+}
+
+if (cmdPresetSelect) {
+  cmdPresetSelect.addEventListener('change', () => {
+    if (cmdPresetSelect.value && cmdInput) {
+      cmdInput.value = cmdPresetSelect.value;
+      cmdInput.focus();
+    }
+  });
+}
+
+async function executeCommand() {
+  if (!cmdInput || !cmdOutput) return;
+  const cmd = cmdInput.value.trim();
+  if (!cmd) return;
+
+  const targetScope = cmdTargetScope ? cmdTargetScope.value : 'all';
+  const timeStr = new Date().toLocaleTimeString();
+
+  // Loading holati
+  cmdOutput.innerHTML += `\n<span class="text-sky-400 font-semibold">[${timeStr}] $ ${cmd}</span>\n<span class="text-slate-500">Buyruq yuborildi, bajarilmoqda...</span>\n`;
+  cmdOutput.scrollTop = cmdOutput.scrollHeight;
+
+  try {
+    const res = await fetch('/api/commands/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: cmd, targetScope })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      let resultText = '';
+      data.results.forEach((r) => {
+        const badgeColor = r.success ? 'text-emerald-400' : 'text-red-400';
+        resultText += `<span class="${badgeColor} font-bold">[${r.id.toUpperCase()}]</span>\n${r.output}\n\n`;
+      });
+      cmdOutput.innerHTML += resultText;
+      addLog(`[Terminal] "${cmd}" bajarildi (${data.results.length} ta qurilma).`, 'success');
+    } else {
+      cmdOutput.innerHTML += `<span class="text-red-400">[Xatolik]: ${data.error || 'Noma\'lum xato'}</span>\n\n`;
+      addLog(`[Terminal] Xatolik: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    cmdOutput.innerHTML += `<span class="text-red-400">[Tarmoq xatosi]: ${err.message}</span>\n\n`;
+    addLog(`[Terminal] Tarmoq xatosi: ${err.message}`, 'error');
+  }
+
+  cmdOutput.scrollTop = cmdOutput.scrollHeight;
+}
+
+if (btnExecuteCommand) {
+  btnExecuteCommand.addEventListener('click', executeCommand);
+}
+
+if (cmdInput) {
+  cmdInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      executeCommand();
+    }
+  });
+}
+
+if (btnClearCmdOutput && cmdOutput) {
+  btnClearCmdOutput.addEventListener('click', () => {
+    cmdOutput.innerHTML = '<span class="text-slate-500">Terminal tozalandi. Yangi buyruq kiriting.</span>\n';
+  });
+}
+
+if (btnCopyCmdOutput && cmdOutput) {
+  btnCopyCmdOutput.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(cmdOutput.innerText);
+      btnCopyCmdOutput.innerHTML = '<i class="fa-solid fa-check text-emerald-400 mr-1"></i> Nusxalandi!';
+      setTimeout(() => {
+        btnCopyCmdOutput.innerHTML = '<i class="fa-solid fa-copy mr-1"></i> Nusxalash';
+      }, 2000);
+    } catch {
+      alert('Nusxalashda xatolik');
+    }
+  });
+}
 
 // Boshlang'ich yuklash
 initWebSocket();

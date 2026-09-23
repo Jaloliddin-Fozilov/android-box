@@ -280,6 +280,59 @@ app.post('/api/instances/:id/text', async (req: Request, res: Response) => {
   }
 });
 
+// Masofaviy ADB shell buyrug'ini bajarish (Terminal)
+app.post('/api/commands/exec', async (req: Request, res: Response) => {
+  const { command, targetScope = 'all', targetInstanceId } = req.body;
+  if (!command || typeof command !== 'string' || !command.trim()) {
+    return res.status(400).json({ error: 'Buyruq kiritilmadi' });
+  }
+
+  const cleanCmd = command.trim();
+  let targets: AndroidInstance[] = [];
+
+  if (targetInstanceId) {
+    const inst = pool.get(targetInstanceId);
+    if (inst) targets = [inst];
+  } else if (targetScope === 'all') {
+    targets = pool.getAll().filter(i => i.status === 'online');
+    if (targets.length === 0) {
+      targets = pool.getAll();
+    }
+  } else {
+    const inst = pool.get(targetScope);
+    if (inst) targets = [inst];
+  }
+
+  if (targets.length === 0) {
+    return res.status(400).json({ error: 'Qurilmalar topilmadi. Sozlamalarni tekshiring.' });
+  }
+
+  broadcastLog(`[Terminal] Buyruq bajarilmoqda (${targets.length} ta qurilma): "${cleanCmd}"`, 'info');
+
+  const results: Array<{ id: string; serial: string; output: string; success: boolean }> = [];
+
+  for (const inst of targets) {
+    try {
+      const output = await adb.shell(inst.serial, cleanCmd, 12000); // 12s timeout
+      results.push({
+        id: inst.id,
+        serial: inst.serial,
+        output: output || '(Javob yo\'q / Buyruq bajarildi)',
+        success: true
+      });
+    } catch (err: any) {
+      results.push({
+        id: inst.id,
+        serial: inst.serial,
+        output: `Xatolik: ${err.message}`,
+        success: false
+      });
+    }
+  }
+
+  res.json({ success: true, command: cleanCmd, results });
+});
+
 // Guruhli vazifani ishga tushirish (Like, Comment, Follow, Warmup)
 app.post('/api/tasks/run', async (req: Request, res: Response) => {
   const { app: targetApp, taskType, commentText, scope } = req.body;

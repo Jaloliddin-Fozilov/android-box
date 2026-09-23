@@ -43,6 +43,9 @@
 
       <!-- Amallar paneli -->
       <div class="flex items-center space-x-2">
+        <button id="btnOpenCommandModal" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 transition flex items-center gap-1.5 border border-sky-500/30" title="Qurilmalarda ADB buyruqlarini yuborish (Terminal)">
+          <i class="fa-solid fa-terminal"></i> Buyruq / Terminal
+        </button>
         <button id="btnOpenApkModal" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 transition flex items-center gap-1.5 border border-emerald-500/30">
           <i class="fa-solid fa-box-open"></i> APK O'rnatish
         </button>
@@ -372,6 +375,79 @@
         <button id="btnStartApkInstall" class="px-5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
           <i class="fa-solid fa-download mr-1"></i> O'rnatishni Boshlash
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Masofaviy Terminal / Buyruq Bajarish Modali -->
+  <div id="commandModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-terminal text-sky-400"></i> Masofaviy ADB Terminal & Buyruqlar
+        </h3>
+        <button class="modal-close text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Nishon Qurilmalar:</label>
+            <select id="cmdTargetScope" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
+              <option value="all">Barcha Online qurilmalar (Guruhli)</option>
+              <option value="box_1">Faqat Box #1</option>
+              <option value="box_2">Faqat Box #2</option>
+              <option value="box_3">Faqat Box #3</option>
+              <option value="box_4">Faqat Box #4</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Tayyor Buyruq Shablonlari:</label>
+            <select id="cmdPresetSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
+              <option value="">-- Shablonni tanlang --</option>
+              <option value="pm list packages -3">📦 O'rnatilgan ilovalar (pm list packages -3)</option>
+              <option value="getprop ro.product.model; getprop ro.build.version.release">📱 Telefon modeli va Android versiyasi</option>
+              <option value="df -h /data">💾 Xotira hajmi va bo'sh joy (df -h /data)</option>
+              <option value="dumpsys battery">🔋 Batareya holati (dumpsys battery)</option>
+              <option value="wm size; wm density">📐 Ekran o'lchami va DPI (wm size)</option>
+              <option value="ip addr show eth0">🌐 Tarmoq va IP holati (ip addr)</option>
+              <option value="top -n 1 -m 6">⚡️ CPU va RAM iste'moli (top)</option>
+              <option value="am start -a android.intent.action.VIEW -d &quot;https://google.com&quot;">🌍 Brauzerda link ochish</option>
+              <option value="reboot">🔄 Konteynerni qayta yuklash (reboot)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">ADB Shell Buyrug'i:</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-sky-400 font-mono text-xs select-none">$</span>
+            <input type="text" id="cmdInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-7 pr-24 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-sky-500" placeholder="Masalan: pm list packages -3 yoki dumpsys battery">
+            <button id="btnExecuteCommand" class="absolute right-1.5 top-1.5 px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-md text-xs font-semibold transition flex items-center gap-1">
+              <i class="fa-solid fa-play text-[10px]"></i> Bajarish
+            </button>
+          </div>
+        </div>
+
+        <!-- Terminal Chiqishi (Output) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-slate-300 font-medium">Terminal Natijasi (Output):</label>
+            <div class="flex items-center gap-2">
+              <button id="btnClearCmdOutput" class="text-[11px] text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-trash-can mr-1"></i> Tozalash
+              </button>
+              <button id="btnCopyCmdOutput" class="text-[11px] text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-copy mr-1"></i> Nusxalash
+              </button>
+            </div>
+          </div>
+          <div id="cmdOutput" class="bg-black/95 rounded-xl p-3 border border-slate-800 font-mono text-[11px] text-emerald-400 h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed select-text font-mono">Kutmoqda... Buyruq kiriting va 'Bajarish' tugmasini bosing.</div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-slate-800">
+        <button class="modal-close px-4 py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Yopish</button>
       </div>
     </div>
   </div>
