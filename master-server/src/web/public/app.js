@@ -386,16 +386,26 @@ document.querySelectorAll('.modal-close').forEach(btn => {
   });
 });
 
+// Qurilmalar sonini tezkor tanlash
+function setBoxCount(n) {
+  const el = document.getElementById('cfgCount');
+  if (el) el.value = n;
+}
+
 // Vazifalar modali boshqaruvi
 document.getElementById('btnOpenTaskModal').addEventListener('click', () => taskModal.classList.remove('hidden'));
 document.getElementById('btnOpenSettings').addEventListener('click', async () => {
   try {
     const res = await fetch('/api/config');
     const cfg = await res.json();
-    document.getElementById('cfgHost').value = cfg.linuxWorker.host;
-    document.getElementById('cfgStartPort').value = cfg.linuxWorker.startPort;
-    document.getElementById('cfgCount').value = cfg.linuxWorker.count;
-    document.getElementById('cfgHumanTyping').checked = cfg.antiBan.humanTyping;
+    document.getElementById('cfgHost').value = cfg.linuxWorker.host || '';
+    document.getElementById('cfgStartPort').value = cfg.linuxWorker.startPort || 5555;
+    document.getElementById('cfgCount').value = cfg.linuxWorker.count || 4;
+    const endpointsArea = document.getElementById('cfgEndpoints');
+    if (endpointsArea) {
+      endpointsArea.value = (cfg.linuxWorker.endpoints || []).join('\n');
+    }
+    document.getElementById('cfgHumanTyping').checked = cfg.antiBan ? cfg.antiBan.humanTyping : true;
     settingsModal.classList.remove('hidden');
   } catch {}
 });
@@ -434,8 +444,10 @@ document.getElementById('btnExecuteTask').addEventListener('click', async () => 
 // Sozlamalarni saqlash
 document.getElementById('btnSaveSettings').addEventListener('click', async () => {
   const host = document.getElementById('cfgHost').value.trim();
-  const startPort = parseInt(document.getElementById('cfgStartPort').value);
-  const count = parseInt(document.getElementById('cfgCount').value);
+  const startPort = parseInt(document.getElementById('cfgStartPort').value) || 5555;
+  const count = parseInt(document.getElementById('cfgCount').value) || 4;
+  const endpointsArea = document.getElementById('cfgEndpoints');
+  const endpoints = endpointsArea ? endpointsArea.value.split('\n').map(s => s.trim()).filter(Boolean) : [];
   const humanTyping = document.getElementById('cfgHumanTyping').checked;
 
   try {
@@ -443,15 +455,15 @@ document.getElementById('btnSaveSettings').addEventListener('click', async () =>
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        linuxWorker: { host, startPort, count },
+        linuxWorker: { host, startPort, count, endpoints },
         antiBan: { humanTyping }
       })
     });
     settingsModal.classList.add('hidden');
-    addLog('Sozlamalar saqlandi. Yangi manzillarga ulanish amalga oshirilmoqda...', 'success');
+    addLog('Sozlamalar saqlandi. Qurilmalarga ulanish amalga oshirilmoqda...', 'success');
     await fetchInstances();
   } catch (err) {
-    alert('Sozlamalarni saqlashda xatolik yuz berdi');
+    alert('Sozlamalarni saqlashda xatolik yuz berdi: ' + err.message);
   }
 });
 

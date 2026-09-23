@@ -7,6 +7,7 @@ export interface AppConfig {
     host: string;
     startPort: number;
     count: number;
+    endpoints?: string[];
   };
   adbPath: string;
   antiBan: {

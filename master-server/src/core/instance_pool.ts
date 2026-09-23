@@ -23,10 +23,36 @@ export class InstancePool {
   }
 
   /**
-   * Instansiyalar ro'yxatini shakllantirish
+   * Instansiyalar ro'yxatini shakllantirish (Standart port oralig'i yoki alohida endpointlar bilan)
    */
-  setupPool(host: string, startPort: number, count: number): void {
+  setupPool(host: string, startPort: number, count: number, endpoints?: string[]): void {
     this.instances.clear();
+
+    if (endpoints && endpoints.length > 0) {
+      endpoints.forEach((ep, idx) => {
+        const clean = ep.trim();
+        if (!clean) return;
+        const i = idx + 1;
+        const [epHost, epPortStr] = clean.replace('tcp://', '').split(':');
+        const port = parseInt(epPortStr) || 5555;
+        const serial = `${epHost}:${port}`;
+        const id = `box_${i}`;
+
+        this.instances.set(id, {
+          id,
+          index: i,
+          host: epHost,
+          port,
+          serial,
+          status: 'offline',
+          model: 'Yuklanmoqda...',
+          assignedAccount: `Akkaunt #${i}`,
+          currentTask: 'Kutmoqda'
+        });
+      });
+      return;
+    }
+
     for (let i = 1; i <= count; i++) {
       const port = startPort + i - 1;
       const serial = `${host}:${port}`;

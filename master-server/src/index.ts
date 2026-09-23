@@ -52,7 +52,7 @@ function broadcastLog(message: string, level: 'info' | 'success' | 'warn' | 'err
 }
 
 // Boshlang'ich poolni shakllantirish
-pool.setupPool(config.linuxWorker.host, config.linuxWorker.startPort, config.linuxWorker.count);
+pool.setupPool(config.linuxWorker.host, config.linuxWorker.startPort, config.linuxWorker.count, config.linuxWorker.endpoints);
 
 // -----------------------------------------------------------------------------
 // REST API
@@ -66,8 +66,8 @@ app.get('/api/config', (_req: Request, res: Response) => {
 // Konfiguratsiyani yangilash
 app.post('/api/config', (req: Request, res: Response) => {
   config = saveConfig(req.body);
-  pool.setupPool(config.linuxWorker.host, config.linuxWorker.startPort, config.linuxWorker.count);
-  broadcastLog(`Sozlamalar yangilandi: ${config.linuxWorker.host} (${config.linuxWorker.count} ta instansiya)`, 'success');
+  pool.setupPool(config.linuxWorker.host, config.linuxWorker.startPort, config.linuxWorker.count, config.linuxWorker.endpoints);
+  broadcastLog(`Sozlamalar yangilandi: ${config.linuxWorker.endpoints && config.linuxWorker.endpoints.length > 0 ? `${config.linuxWorker.endpoints.length} ta endpoint` : `${config.linuxWorker.host} (${config.linuxWorker.count} ta instansiya)`}`, 'success');
   res.json(config);
 });
 

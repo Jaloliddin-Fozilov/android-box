@@ -261,8 +261,21 @@
           </div>
           <div>
             <label class="block text-slate-300 font-medium mb-1">Instansiyalar Soni:</label>
-            <input type="number" id="cfgCount" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200" value="8">
+            <input type="number" id="cfgCount" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200" value="4">
+            <div class="flex gap-1.5 mt-1.5">
+              <button type="button" onclick="setBoxCount(1)" class="flex-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px]">1 ta</button>
+              <button type="button" onclick="setBoxCount(4)" class="flex-1 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-[11px] font-semibold">4 ta</button>
+              <button type="button" onclick="setBoxCount(8)" class="flex-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px]">8 ta</button>
+            </div>
           </div>
+        </div>
+        <div class="pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-slate-300 font-medium">Alohida Tunnel Endpoints (Har bir quti uchun):</label>
+            <span class="text-[10px] text-slate-500">Ixtiyoriy (Pinggy)</span>
+          </div>
+          <textarea id="cfgEndpoints" rows="3" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-indigo-500" placeholder="Har bir qatorda 1 ta tunnel (ixtiyoriy):&#10;tcp://link1.pinggy.link:42211&#10;tcp://link2.pinggy.link:42212"></textarea>
+          <p class="text-[10px] text-slate-500 mt-0.5">Bo'sh qoldirilsa, yuqoridagi IP va portlar (5555, 5556, 5557, 5558) bo'yicha ulanadi.</p>
         </div>
         <div class="pt-2">
           <label class="flex items-center space-x-2 text-slate-300 cursor-pointer">
