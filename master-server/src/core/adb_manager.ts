@@ -81,7 +81,7 @@ export class AdbManager {
       execFile(
         this.adbPath,
         ['-s', device, 'exec-out', 'screencap', '-p'],
-        { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, timeout: 5000 },
+        { encoding: 'buffer', maxBuffer: 15 * 1024 * 1024, timeout: 15000 },
         (error, stdout) => {
           if (error) {
             reject(error);

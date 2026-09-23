@@ -188,7 +188,10 @@ app.get('/api/instances', async (_req: Request, res: Response) => {
   });
 });
 
-// Skrinshot olish (Adaptive tezkor kompressiya bilan)
+const lastScreenshots = new Map<string, { buffer: Buffer; contentType: string; time: number }>();
+const inFlightScreenshots = new Map<string, Promise<Buffer>>();
+
+// Skrinshot olish (Adaptive tezkor kompressiya va kesh bilan)
 app.get('/api/instances/:id/screenshot', async (req: Request, res: Response) => {
   const inst = pool.get(req.params.id);
   if (!inst) {
@@ -198,9 +201,17 @@ app.get('/api/instances/:id/screenshot', async (req: Request, res: Response) => 
   const quality = (req.query.quality as string) || 'low'; // Standart: ultra-tezkor (low)
 
   try {
-    const pngBuffer = await adb.screencap(inst.serial);
+    let pngPromise = inFlightScreenshots.get(inst.serial);
+    if (!pngPromise) {
+      pngPromise = adb.screencap(inst.serial).finally(() => {
+        inFlightScreenshots.delete(inst.serial);
+      });
+      inFlightScreenshots.set(inst.serial, pngPromise);
+    }
+    const pngBuffer = await pngPromise;
 
     if (quality === 'raw' || quality === 'high') {
+      lastScreenshots.set(inst.id, { buffer: pngBuffer, contentType: 'image/png', time: Date.now() });
       res.setHeader('Content-Type', 'image/png');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       return res.send(pngBuffer);
@@ -221,10 +232,17 @@ app.get('/api/instances/:id/screenshot', async (req: Request, res: Response) => 
     fs.unlink(tmpPng, () => {});
     fs.unlink(tmpJpg, () => {});
 
+    lastScreenshots.set(inst.id, { buffer: jpgBuffer, contentType: 'image/jpeg', time: Date.now() });
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.send(jpgBuffer);
   } catch (err: any) {
+    const cached = lastScreenshots.get(inst.id);
+    if (cached) {
+      res.setHeader('Content-Type', cached.contentType);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      return res.send(cached.buffer);
+    }
     res.status(500).send(`Skrinshot olishda xatolik: ${err.message}`);
   }
 });
