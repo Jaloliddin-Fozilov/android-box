@@ -16,7 +16,7 @@ export class AdbManager {
   async connect(host: string, port: number): Promise<boolean> {
     const target = `${host}:${port}`;
     try {
-      const { stdout } = await execPromise(`${this.adbPath} connect ${target}`);
+      const { stdout } = await execPromise(`${this.adbPath} connect ${target}`, { timeout: 4000 });
       return stdout.includes('connected') || stdout.includes('already connected');
     } catch (err) {
       console.error(`[ADB] ${target} ga ulanishda xato:`, err);
@@ -30,7 +30,7 @@ export class AdbManager {
   async disconnect(host: string, port: number): Promise<boolean> {
     const target = `${host}:${port}`;
     try {
-      await execPromise(`${this.adbPath} disconnect ${target}`);
+      await execPromise(`${this.adbPath} disconnect ${target}`, { timeout: 3000 });
       return true;
     } catch {
       return false;
@@ -42,7 +42,7 @@ export class AdbManager {
    */
   async getDevices(): Promise<Array<{ serial: string; state: string }>> {
     try {
-      const { stdout } = await execPromise(`${this.adbPath} devices`);
+      const { stdout } = await execPromise(`${this.adbPath} devices`, { timeout: 4000 });
       const lines = stdout.trim().split('\n').slice(1);
       const devices: Array<{ serial: string; state: string }> = [];
 
@@ -64,7 +64,7 @@ export class AdbManager {
    */
   async shell(device: string, command: string): Promise<string> {
     try {
-      const { stdout } = await execPromise(`${this.adbPath} -s ${device} shell "${command.replace(/"/g, '\\"')}"`);
+      const { stdout } = await execPromise(`${this.adbPath} -s ${device} shell "${command.replace(/"/g, '\\"')}"`, { timeout: 5000 });
       return stdout;
     } catch (err: any) {
       return err.stdout || '';
@@ -79,7 +79,7 @@ export class AdbManager {
       execFile(
         this.adbPath,
         ['-s', device, 'exec-out', 'screencap', '-p'],
-        { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 },
+        { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024, timeout: 5000 },
         (error, stdout) => {
           if (error) {
             reject(error);
@@ -109,12 +109,23 @@ export class AdbManager {
   }
 
   /**
-   * Matn kiritish
+   * Matn kiritish (harflar, belgilar, bo'sh joylar va o'zbekcha harflarni to'g'ri o'tkazish)
    */
   async inputText(device: string, text: string): Promise<void> {
-    // Bo'sh joylar va maxsus belgilarni to'g'irlash
-    const sanitized = text.replace(/ /g, '%s').replace(/"/g, '\\"');
-    await this.shell(device, `input text "${sanitized}"`);
+    if (!text) return;
+    const formatted = text
+      .replace(/\r?\n/g, ' ')
+      .replace(/([\\$"`&();<>|*?~#!^'])/g, '\\$1')
+      .replace(/ /g, '%s');
+
+    await new Promise<void>((resolve) => {
+      execFile(this.adbPath, ['-s', device, 'shell', 'input', 'text', formatted], (err) => {
+        if (err) {
+          console.warn(`[ADB] inputText xatolik (${device}):`, err.message);
+        }
+        resolve();
+      });
+    });
   }
 
   /**

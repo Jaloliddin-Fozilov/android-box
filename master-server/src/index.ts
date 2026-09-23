@@ -262,6 +262,24 @@ app.post('/api/instances/:id/key', async (req: Request, res: Response) => {
   }
 });
 
+// Matn kiritish (Text typing & Copy-Paste)
+app.post('/api/instances/:id/text', async (req: Request, res: Response) => {
+  const inst = pool.get(req.params.id);
+  if (!inst) return res.status(404).json({ error: 'Topilmadi' });
+
+  const { text } = req.body;
+  if (text === undefined || text === null) {
+    return res.status(400).json({ error: 'Matn ko\'rsatilmadi' });
+  }
+
+  try {
+    await adb.inputText(inst.serial, String(text));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Guruhli vazifani ishga tushirish (Like, Comment, Follow, Warmup)
 app.post('/api/tasks/run', async (req: Request, res: Response) => {
   const { app: targetApp, taskType, commentText, scope } = req.body;

@@ -373,6 +373,28 @@ async function quickKey(id, keycode) {
   } catch {}
 }
 
+async function sendQuickKey(keycode) {
+  if (!currentActiveInstanceId) return;
+  await quickKey(currentActiveInstanceId, keycode);
+}
+
+// Matn yuborish (Typing / Paste)
+async function sendTextToDevice(id, text) {
+  if (!id || !text) return;
+  try {
+    const res = await fetch(`/api/instances/${id}/text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (res.ok) {
+      setTimeout(refreshScreenShot, 250);
+    }
+  } catch (err) {
+    console.error('sendText xato:', err);
+  }
+}
+
 // Modal yopish hodisalari
 document.querySelectorAll('.modal-close').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -483,9 +505,118 @@ document.getElementById('btnScreenAuto').addEventListener('click', () => {
   }
 });
 
-document.getElementById('btnScreenRefresh').addEventListener('click', refreshScreenShot);
+const btnScreenRefresh = document.getElementById('btnScreenRefresh');
+if (btnScreenRefresh) btnScreenRefresh.addEventListener('click', refreshScreenShot);
 document.getElementById('btnScreenHome').addEventListener('click', () => quickKey(currentActiveInstanceId, 3));
 document.getElementById('btnScreenBack').addEventListener('click', () => quickKey(currentActiveInstanceId, 4));
+
+// Matn yuborish va Clipboard (Paste) hodisalari
+const screenTextInput = document.getElementById('screenTextInput');
+const btnSendText = document.getElementById('btnSendText');
+const btnPasteClipboard = document.getElementById('btnPasteClipboard');
+
+async function handleSendText() {
+  if (!currentActiveInstanceId || !screenTextInput) return;
+  const val = screenTextInput.value;
+  if (!val) return;
+  await sendTextToDevice(currentActiveInstanceId, val);
+  screenTextInput.value = '';
+  addLog(`[${currentActiveInstanceId}] Matn yuborildi: "${val.substring(0, 30)}..."`, 'info');
+}
+
+if (btnSendText) {
+  btnSendText.addEventListener('click', handleSendText);
+}
+
+if (screenTextInput) {
+  screenTextInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSendText();
+    }
+  });
+}
+
+if (btnPasteClipboard) {
+  btnPasteClipboard.addEventListener('click', async () => {
+    if (!currentActiveInstanceId) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        addLog('Clipboard bo\'sh yoki ruxsat berilmadi.', 'warn');
+        return;
+      }
+      await sendTextToDevice(currentActiveInstanceId, text);
+      addLog(`[${currentActiveInstanceId}] Clipboard'dan nusxalandi: "${text.substring(0, 30)}..."`, 'success');
+    } catch (err) {
+      const manual = prompt('Matnni bu yerga paste (Cmd+V) qiling:');
+      if (manual) {
+        await sendTextToDevice(currentActiveInstanceId, manual);
+        addLog(`[${currentActiveInstanceId}] Matn kiritildi.`, 'success');
+      }
+    }
+  });
+}
+
+// Klaviaturadan to'g'ridan-to'g'ri boshqarish (Keyboard events)
+window.addEventListener('keydown', async (e) => {
+  if (!currentActiveInstanceId || screenModal.classList.contains('hidden')) return;
+
+  // Agar boshqa modallardagi input yoki textarea bo'lsa, xalaqit bermaymiz
+  if (e.target && e.target.tagName === 'INPUT' && e.target !== screenTextInput) return;
+  if (e.target && e.target.tagName === 'TEXTAREA') return;
+
+  // 1. Cmd+V / Ctrl+V - Clipboard paste
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'v' || e.key === 'V')) {
+    if (document.activeElement === screenTextInput) return; // input o'zi paste qilsin
+
+    e.preventDefault();
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        await sendTextToDevice(currentActiveInstanceId, text);
+        addLog(`[${currentActiveInstanceId}] ⌘+V orqali paste qilindi: "${text.substring(0, 30)}..."`, 'success');
+      }
+    } catch {
+      if (screenTextInput) screenTextInput.focus();
+    }
+    return;
+  }
+
+  // Agar screenTextInput fokusda bo'lsa, qolgan tugmalarni o'ziga qoldiramiz
+  if (document.activeElement === screenTextInput) return;
+
+  // 2. Maxsus boshqaruv tugmalari (Backspace, Enter, Space, Arrow keys, Esc)
+  if (e.key === 'Backspace') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 67); // KEYCODE_DEL
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 66); // KEYCODE_ENTER
+  } else if (e.key === ' ') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 62); // KEYCODE_SPACE
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 19);
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 20);
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 21);
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 22);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    await quickKey(currentActiveInstanceId, 4); // KEYCODE_BACK
+  } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    // 3. Oddiy harflar va sonlar (a-z, 0-9 va boshqalar)
+    e.preventDefault();
+    await sendTextToDevice(currentActiveInstanceId, e.key);
+  }
+});
 
 document.getElementById('btnRefresh').addEventListener('click', () => {
   addLog('Qurilmalar holati qayta tekshirilmoqda...', 'info');
