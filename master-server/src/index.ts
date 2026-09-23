@@ -52,8 +52,8 @@ function broadcastLog(message: string, level: 'info' | 'success' | 'warn' | 'err
   broadcast({ type: 'log', message, level });
 }
 
-// Boshlang'ich poolni shakllantirish
-pool.setupPool(config.linuxWorker.host, config.linuxWorker.startPort, config.linuxWorker.count, config.linuxWorker.endpoints);
+// Boshlang'ich poolni shakllantirish (Barcha Worker PC lar)
+pool.setupWorkers(config.workers);
 
 // -----------------------------------------------------------------------------
 // REST API
@@ -67,16 +67,78 @@ app.get('/api/config', (_req: Request, res: Response) => {
 // Konfiguratsiyani yangilash
 app.post('/api/config', (req: Request, res: Response) => {
   config = saveConfig(req.body);
-  pool.setupPool(config.linuxWorker.host, config.linuxWorker.startPort, config.linuxWorker.count, config.linuxWorker.endpoints);
-  broadcastLog(`Sozlamalar yangilandi: ${config.linuxWorker.endpoints && config.linuxWorker.endpoints.length > 0 ? `${config.linuxWorker.endpoints.length} ta endpoint` : `${config.linuxWorker.host} (${config.linuxWorker.count} ta instansiya)`}`, 'success');
+  pool.setupWorkers(config.workers);
+  broadcastLog(`Sozlamalar yangilandi: ${config.workers.length} ta Worker PC faollashtirildi`, 'success');
   res.json(config);
+});
+
+// Worker PC lar ro'yxatini olish
+app.get('/api/workers', (_req: Request, res: Response) => {
+  res.json(config.workers);
+});
+
+// Yangi Worker PC qo'shish
+app.post('/api/workers', (req: Request, res: Response) => {
+  const { name, host, startPort = 5555, count = 1, endpoints, ssh } = req.body;
+  if (!host) return res.status(400).json({ error: 'Worker IP yoki xost manzilini kiriting!' });
+
+  const id = `pc_${Date.now()}`;
+  const newWorker = {
+    id,
+    name: name || `Worker PC #${config.workers.length + 1}`,
+    host: host.trim(),
+    startPort: parseInt(startPort) || 5555,
+    count: parseInt(count) || 1,
+    endpoints: Array.isArray(endpoints) ? endpoints : [],
+    ssh
+  };
+
+  config.workers.push(newWorker);
+  config = saveConfig({ workers: config.workers });
+  pool.setupWorkers(config.workers);
+  broadcastLog(`Yangi Worker qo'shildi: ${newWorker.name} (${newWorker.host})`, 'success');
+  res.json({ success: true, worker: newWorker, workers: config.workers });
+});
+
+// Worker PC ni yangilash
+app.put('/api/workers/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const idx = config.workers.findIndex(w => w.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'Worker topilmadi' });
+
+  config.workers[idx] = {
+    ...config.workers[idx],
+    ...req.body,
+    id
+  };
+
+  config = saveConfig({ workers: config.workers });
+  pool.setupWorkers(config.workers);
+  broadcastLog(`Worker yangilandi: ${config.workers[idx].name}`, 'success');
+  res.json({ success: true, worker: config.workers[idx], workers: config.workers });
+});
+
+// Worker PC ni o'chirish
+app.delete('/api/workers/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const initialLen = config.workers.length;
+  config.workers = config.workers.filter(w => w.id !== id);
+
+  if (config.workers.length === initialLen) {
+    return res.status(404).json({ error: 'Worker topilmadi' });
+  }
+
+  config = saveConfig({ workers: config.workers });
+  pool.setupWorkers(config.workers);
+  broadcastLog(`Worker o'chirildi: ${id}`, 'warn');
+  res.json({ success: true, workers: config.workers });
 });
 
 // Barcha instansiyalar holatini olish
 app.get('/api/instances', async (_req: Request, res: Response) => {
   const instances = await pool.refreshAll();
   res.json({
-    host: config.linuxWorker.host,
+    workers: config.workers,
     instances
   });
 });

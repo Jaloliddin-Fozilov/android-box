@@ -43,14 +43,20 @@
 
       <!-- Amallar paneli -->
       <div class="flex items-center space-x-2">
+        <button id="btnOpenAddWorkerModal" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 transition flex items-center gap-1.5 border border-indigo-500/30" title="Yangi Worker PC qo'shish">
+          <i class="fa-solid fa-server"></i> + Yangi PC
+        </button>
         <button id="btnOpenCommandModal" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 transition flex items-center gap-1.5 border border-sky-500/30" title="Qurilmalarda ADB buyruqlarini yuborish (Terminal)">
-          <i class="fa-solid fa-terminal"></i> Buyruq / Terminal
+          <i class="fa-solid fa-terminal"></i> Terminal
         </button>
         <button id="btnOpenApkModal" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 transition flex items-center gap-1.5 border border-emerald-500/30">
           <i class="fa-solid fa-box-open"></i> APK O'rnatish
         </button>
         <button id="btnSystemUpdate" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 border border-slate-700" title="Git va Tizimni yangilash">
           <i class="fa-solid fa-cloud-arrow-down"></i> Tizimni Yangilash
+        </button>
+        <button onclick="openAddWorkerModal()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 transition flex items-center gap-1.5 border border-indigo-500/30" title="Yangi Worker PC qo'shish">
+          <i class="fa-solid fa-plus"></i> Yangi PC
         </button>
         <button id="btnRefresh" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center gap-1.5 border border-slate-700">
           <i class="fa-solid fa-arrows-rotate"></i>
@@ -92,20 +98,30 @@
         </div>
         <div class="text-2xl font-bold text-rose-400 mt-1" id="statOffline">0</div>
       </div>
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl col-span-2 sm:col-span-4 lg:col-span-1">
-        <div class="text-xs text-indigo-400 font-medium">Linux Worker Xost</div>
-        <div class="text-sm font-semibold text-slate-200 mt-1 truncate" id="statHost">127.0.0.1</div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl col-span-2 sm:col-span-4 lg:col-span-1 flex flex-col justify-between">
+        <div>
+          <div class="text-xs text-indigo-400 font-medium">Worker PC'lar</div>
+          <div class="text-sm font-semibold text-slate-200 mt-1 truncate" id="statHost">1 ta kompyuter</div>
+        </div>
+        <button id="btnQuickAddWorker" class="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold text-left mt-1">
+          + Yangi PC qo'shish
+        </button>
       </div>
     </div>
 
     <!-- Qurilmalar Ro'yxati / Grid -->
     <section>
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Android Instansiyalari (Fermadagi Qurilmalar)</h2>
-        <span class="text-xs text-slate-500" id="instanceCountBadge">0 ta ko'rsatilmoqda</span>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Android Instansiyalari (PC Guruhlari Bo'yicha)</h2>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-500" id="instanceCountBadge">0 ta ko'rsatilmoqda</span>
+          <button onclick="openAddWorkerModal()" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1">
+            <i class="fa-solid fa-plus text-[10px]"></i> Yangi PC
+          </button>
+        </div>
       </div>
 
-      <div id="instancesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div id="instancesGrid" class="space-y-6">
         <!-- Javascript orqali kartochkalar joylanadi -->
         <div class="col-span-full py-12 text-center text-slate-500 bg-slate-900/50 rounded-2xl border border-slate-800/80">
           <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 text-indigo-500"></i>
@@ -527,6 +543,57 @@
 
       <div class="flex justify-end pt-1 border-t border-slate-800">
         <button class="modal-close px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Yopish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Worker PC Qo'shish / Tahrirlash Modali -->
+  <div id="workerModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="workerModalTitle" class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-server text-indigo-400"></i> Worker PC Qo'shish / Sozlash
+        </h3>
+        <button class="modal-close text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <input type="hidden" id="workerEditId" value="">
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">PC / Server Nomi:</label>
+          <input type="text" id="workerNameInput" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200" placeholder="Masalan: Ofis PC #1 yoki Mark-0606">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">IP Manzili yoki Tunnel (Host):</label>
+          <input type="text" id="workerHostInput" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono" placeholder="Masalan: 195.158.14.62 yoki 100.85.x.y yoki link">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Boshlang'ich Port:</label>
+            <input type="number" id="workerStartPortInput" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono" value="5555">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Qutilar Soni (Box count):</label>
+            <input type="number" id="workerCountInput" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200" value="1">
+            <div class="flex gap-1 mt-1.5">
+              <button type="button" onclick="document.getElementById('workerCountInput').value=1" class="flex-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]">1 ta</button>
+              <button type="button" onclick="document.getElementById('workerCountInput').value=2" class="flex-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]">2 ta</button>
+              <button type="button" onclick="document.getElementById('workerCountInput').value=4" class="flex-1 py-0.5 rounded bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-[10px] font-semibold">4 ta</button>
+              <button type="button" onclick="document.getElementById('workerCountInput').value=8" class="flex-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]">8 ta</button>
+            </div>
+          </div>
+        </div>
+        <div class="pt-2 border-t border-slate-800">
+          <label class="block text-slate-300 font-medium mb-1">Alohida Tunnel Endpoints (ixtiyoriy):</label>
+          <textarea id="workerEndpointsInput" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 font-mono text-[11px]" placeholder="Agar har bir qutiga turli Pinggy URL bo'lsa:&#10;tcp://link1:42211&#10;tcp://link2:42212"></textarea>
+          <p class="text-[10px] text-slate-500 mt-0.5">Bo'sh qoldirilsa, IP va port bo'yicha ketma-ket ulanadi.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+        <button class="modal-close px-4 py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Bekor qilish</button>
+        <button id="btnSaveWorker" class="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Saqlash & Ulanish</button>
       </div>
     </div>
   </div>

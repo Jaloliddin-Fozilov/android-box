@@ -55,7 +55,8 @@ function initWebSocket() {
       if (data.type === 'log') {
         addLog(data.message, data.level);
       } else if (data.type === 'instances_update') {
-        renderInstances(data.instances);
+        if (data.workers) currentWorkers = data.workers;
+        renderGroupedInstances(data.instances, currentWorkers);
       }
     } catch (err) {
       console.error('WS xabarni parse qilishda xatolik:', err);
@@ -68,98 +69,160 @@ function initWebSocket() {
   };
 }
 
+let currentWorkers = [];
+
 // Instansiyalarni yuklash
 async function fetchInstances() {
   try {
     const res = await fetch('/api/instances');
     const data = await res.json();
-    renderInstances(data.instances);
-    if (data.host) {
-      statHost.textContent = data.host;
+    currentWorkers = data.workers || [];
+    renderGroupedInstances(data.instances || [], currentWorkers);
+    if (statHost) {
+      statHost.textContent = `${currentWorkers.length} ta kompyuter`;
     }
   } catch (err) {
     addLog('Instansiyalarni olishda xatolik yuz berdi: ' + err.message, 'error');
   }
 }
 
-// UI kartochkalarini chizish
-function renderInstances(instances) {
+// Bitta qurilma kartochkasi HTML
+function renderDeviceCard(inst) {
+  let badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+  let statusText = 'Oflayn';
+  let statusDot = 'bg-rose-500';
+
+  if (inst.status === 'online') {
+    badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+    statusText = 'Online';
+    statusDot = 'bg-emerald-500';
+  } else if (inst.status === 'busy') {
+    badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+    statusText = 'Band';
+    statusDot = 'bg-amber-500 animate-pulse';
+  }
+
+  return `
+    <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 transition rounded-xl p-4 flex flex-col justify-between space-y-3.5 shadow-md">
+      <div>
+        <!-- Sarlavha -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full ${statusDot}"></span>
+            <span class="font-bold text-sm text-white">Box #${inst.index}</span>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full border ${badgeClass} font-semibold uppercase tracking-wider">${statusText}</span>
+        </div>
+
+        <!-- Ma'lumotlar -->
+        <div class="mt-2.5 space-y-1 text-xs">
+          <div class="text-slate-400 flex justify-between">
+            <span>Port:</span>
+            <span class="font-mono text-slate-200">${inst.port}</span>
+          </div>
+          <div class="text-slate-400 flex justify-between">
+            <span>Model:</span>
+            <span class="font-medium text-slate-300 truncate max-w-[130px]" title="${inst.model || ''}">${inst.model || 'Aniqlanmagan'}</span>
+          </div>
+          <div class="text-slate-400 flex justify-between">
+            <span>Akkaunt:</span>
+            <span class="text-indigo-400 font-medium">${inst.assignedAccount || 'N/A'}</span>
+          </div>
+          <div class="text-slate-400 flex justify-between pt-1 border-t border-slate-800/80">
+            <span>Joriy holat:</span>
+            <span class="text-slate-300 truncate max-w-[130px]">${inst.currentTask || 'Bo\'sh'}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Amallar tugmalari -->
+      <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-1.5">
+        <button onclick="openScreenModal('${inst.id}', 'Box #${inst.index}')" class="flex-1 py-1.5 px-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 text-xs rounded-lg transition font-medium text-center">
+          <i class="fa-solid fa-eye mr-1"></i> Ko'rish
+        </button>
+        <button onclick="quickApp('${inst.id}', 'instagram')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-lg text-xs" title="Instagram ochish">
+          <i class="fa-brands fa-instagram"></i>
+        </button>
+        <button onclick="quickApp('${inst.id}', 'tiktok')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs" title="TikTok ochish">
+          <i class="fa-brands fa-tiktok"></i>
+        </button>
+        <button onclick="quickKey('${inst.id}', 3)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-xs" title="Home">
+          <i class="fa-solid fa-house"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Guruhlangan UI chizish (Har bir PC alohida blok bo'lib chiqadi)
+function renderGroupedInstances(instances, workers) {
+  updateStats(instances);
+  instanceCountBadge.textContent = `${instances.length} ta instansiya (${workers.length} ta PC)`;
+
   if (!instances || instances.length === 0) {
     instancesGrid.innerHTML = `
-      <div class="col-span-full py-12 text-center text-slate-400 bg-slate-900 rounded-2xl border border-slate-800">
-        <i class="fa-solid fa-triangle-exclamation text-2xl text-amber-500 mb-2"></i>
-        <p>Hozircha birorta ham instansiya topilmadi. Linux xost sozlamalarini tekshiring.</p>
+      <div class="py-12 text-center text-slate-400 bg-slate-900 rounded-2xl border border-slate-800">
+        <i class="fa-solid fa-server text-3xl text-indigo-500 mb-3"></i>
+        <p class="font-medium text-slate-200">Hozircha birorta ham Worker PC qo'shilmagan.</p>
+        <button onclick="openAddWorkerModal()" class="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg">
+          + Yangi Worker PC Qo'shish
+        </button>
       </div>
     `;
-    updateStats([], '127.0.0.1');
     return;
   }
 
-  updateStats(instances);
-  instanceCountBadge.textContent = `${instances.length} ta instansiya`;
+  // Agar workers ro'yxati bo'lmasa, yagona guruh sifatida ko'rsatamiz
+  const effectiveWorkers = (workers && workers.length > 0) ? workers : [{
+    id: 'pc_1',
+    name: 'Asosiy Linux Server',
+    host: '127.0.0.1',
+    count: instances.length
+  }];
 
-  instancesGrid.innerHTML = instances.map(inst => {
-    let badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
-    let statusText = 'Oflayn';
-    let statusDot = 'bg-rose-500';
-
-    if (inst.status === 'online') {
-      badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-      statusText = 'Online';
-      statusDot = 'bg-emerald-500';
-    } else if (inst.status === 'busy') {
-      badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-      statusText = 'Band';
-      statusDot = 'bg-amber-500 animate-pulse';
-    }
+  instancesGrid.innerHTML = effectiveWorkers.map(worker => {
+    // Ushbu workerga tegishli qurilmalar
+    const instList = instances.filter(i => i.workerId === worker.id);
+    const onlineCount = instList.filter(i => i.status === 'online').length;
+    const workerOnlineDot = onlineCount > 0 ? 'bg-emerald-500' : 'bg-rose-500';
 
     return `
-      <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 transition rounded-xl p-4 flex flex-col justify-between space-y-3.5 shadow-md">
-        <div>
-          <!-- Sarlavha -->
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <span class="w-2.5 h-2.5 rounded-full ${statusDot}"></span>
-              <span class="font-bold text-sm text-white">Box #${inst.index}</span>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3.5 shadow-lg">
+        <!-- Worker Guruh Sarlavhasi -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <i class="fa-solid fa-server text-sm"></i>
             </div>
-            <span class="text-[10px] px-2 py-0.5 rounded-full border ${badgeClass} font-semibold uppercase tracking-wider">${statusText}</span>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full ${workerOnlineDot}"></span>
+                <span class="font-bold text-white text-sm">${worker.name}</span>
+                <span class="text-[11px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono border border-slate-700">${worker.host}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">
+                Qurilmalar: <span class="text-slate-200 font-semibold">${instList.length} ta box</span> | 
+                Online: <span class="text-emerald-400 font-semibold">${onlineCount}</span> | 
+                Oflayn: <span class="text-rose-400 font-semibold">${instList.length - onlineCount}</span>
+              </div>
+            </div>
           </div>
 
-          <!-- Ma'lumotlar -->
-          <div class="mt-2.5 space-y-1 text-xs">
-            <div class="text-slate-400 flex justify-between">
-              <span>Port:</span>
-              <span class="font-mono text-slate-200">${inst.port}</span>
-            </div>
-            <div class="text-slate-400 flex justify-between">
-              <span>Model:</span>
-              <span class="font-medium text-slate-300 truncate max-w-[130px]" title="${inst.model || ''}">${inst.model || 'Aniqlanmagan'}</span>
-            </div>
-            <div class="text-slate-400 flex justify-between">
-              <span>Akkaunt:</span>
-              <span class="text-indigo-400 font-medium">${inst.assignedAccount || 'N/A'}</span>
-            </div>
-            <div class="text-slate-400 flex justify-between pt-1 border-t border-slate-800/80">
-              <span>Joriy holat:</span>
-              <span class="text-slate-300 truncate max-w-[130px]">${inst.currentTask || 'Bo\'sh'}</span>
-            </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="editWorker('${worker.id}')" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition flex items-center gap-1" title="Sozlash">
+              <i class="fa-solid fa-pen-to-square text-[10px]"></i> Tahrirlash
+            </button>
+            <button onclick="deleteWorker('${worker.id}')" class="px-2 py-1 text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/20 transition flex items-center gap-1" title="PC ni o'chirish">
+              <i class="fa-solid fa-trash text-[10px]"></i>
+            </button>
           </div>
         </div>
 
-        <!-- Amallar tugmalari -->
-        <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-1.5">
-          <button onclick="openScreenModal('${inst.id}', 'Box #${inst.index}')" class="flex-1 py-1.5 px-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 text-xs rounded-lg transition font-medium text-center">
-            <i class="fa-solid fa-eye mr-1"></i> Ko'rish
-          </button>
-          <button onclick="quickApp('${inst.id}', 'instagram')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-lg text-xs" title="Instagram ochish">
-            <i class="fa-brands fa-instagram"></i>
-          </button>
-          <button onclick="quickApp('${inst.id}', 'tiktok')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs" title="TikTok ochish">
-            <i class="fa-brands fa-tiktok"></i>
-          </button>
-          <button onclick="quickKey('${inst.id}', 3)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-xs" title="Home">
-            <i class="fa-solid fa-house"></i>
-          </button>
+        <!-- Ushbu PC dagi qutilar (Box Grid) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          ${instList.length > 0 
+            ? instList.map(inst => renderDeviceCard(inst)).join('') 
+            : '<div class="col-span-full py-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800/60"><i class="fa-solid fa-mobile-screen mr-1"></i> Ushbu PC da hozircha faol qutilar yo\'q.</div>'}
         </div>
       </div>
     `;
@@ -404,6 +467,8 @@ document.querySelectorAll('.modal-close').forEach(btn => {
     apkModal.classList.add('hidden');
     const cmdModal = document.getElementById('commandModal');
     if (cmdModal) cmdModal.classList.add('hidden');
+    const wModal = document.getElementById('workerModal');
+    if (wModal) wModal.classList.add('hidden');
     if (screenAutoInterval) {
       clearInterval(screenAutoInterval);
       screenAutoInterval = null;
@@ -944,6 +1009,140 @@ if (btnCopyCmdOutput && cmdOutput) {
       alert('Nusxalashda xatolik');
     }
   });
+}
+
+// ==========================================
+// WORKER PC BOSHQARUVI (CRUD & SOZLAMALAR)
+// ==========================================
+function openAddWorkerModal() {
+  const editIdInput = document.getElementById('workerEditId');
+  const titleEl = document.getElementById('workerModalTitle');
+  const nameInput = document.getElementById('workerNameInput');
+  const hostInput = document.getElementById('workerHostInput');
+  const startPortInput = document.getElementById('workerStartPortInput');
+  const countInput = document.getElementById('workerCountInput');
+  const endpointsInput = document.getElementById('workerEndpointsInput');
+
+  if (editIdInput) editIdInput.value = '';
+  if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-server text-indigo-400"></i> Yangi Worker PC Qo\'shish';
+  if (nameInput) nameInput.value = `Worker PC #${currentWorkers.length + 1}`;
+  if (hostInput) hostInput.value = '';
+  if (startPortInput) startPortInput.value = 5555;
+  if (countInput) countInput.value = 1;
+  if (endpointsInput) endpointsInput.value = '';
+
+  const modal = document.getElementById('workerModal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function editWorker(workerId) {
+  const w = currentWorkers.find(x => x.id === workerId);
+  if (!w) return;
+
+  const editIdInput = document.getElementById('workerEditId');
+  const titleEl = document.getElementById('workerModalTitle');
+  const nameInput = document.getElementById('workerNameInput');
+  const hostInput = document.getElementById('workerHostInput');
+  const startPortInput = document.getElementById('workerStartPortInput');
+  const countInput = document.getElementById('workerCountInput');
+  const endpointsInput = document.getElementById('workerEndpointsInput');
+
+  if (editIdInput) editIdInput.value = w.id;
+  if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-server text-indigo-400"></i> Worker PC ni Tahrirlash';
+  if (nameInput) nameInput.value = w.name || '';
+  if (hostInput) hostInput.value = w.host || '';
+  if (startPortInput) startPortInput.value = w.startPort || 5555;
+  if (countInput) countInput.value = w.count || 1;
+  if (endpointsInput) endpointsInput.value = (w.endpoints && w.endpoints.length > 0) ? w.endpoints.join('\n') : '';
+
+  const modal = document.getElementById('workerModal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+async function deleteWorker(workerId) {
+  const w = currentWorkers.find(x => x.id === workerId);
+  const name = w ? w.name : workerId;
+  if (!confirm(`Rostdan ham "${name}" kompyuterini va unga tegishli barcha Android qutilarini o'chirmoqchimisiz?`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/api/workers/${workerId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      addLog(`Worker PC "${name}" muvaffaqiyatli o'chirildi.`, 'success');
+      await fetchInstances();
+    } else {
+      alert(data.error || 'Worker o\'chirishda xatolik yuz berdi');
+    }
+  } catch (err) {
+    alert('Server bilan bog\'lanishda xatolik: ' + err.message);
+  }
+}
+
+const btnSaveWorker = document.getElementById('btnSaveWorker');
+if (btnSaveWorker) {
+  btnSaveWorker.addEventListener('click', async () => {
+    const editId = document.getElementById('workerEditId')?.value?.trim();
+    const name = document.getElementById('workerNameInput')?.value?.trim();
+    const host = document.getElementById('workerHostInput')?.value?.trim();
+    const startPort = parseInt(document.getElementById('workerStartPortInput')?.value, 10) || 5555;
+    const count = parseInt(document.getElementById('workerCountInput')?.value, 10) || 1;
+    const rawEndpoints = document.getElementById('workerEndpointsInput')?.value?.trim();
+    const endpoints = rawEndpoints ? rawEndpoints.split('\n').map(s => s.trim()).filter(Boolean) : [];
+
+    if (!host) {
+      alert('Iltimos, Worker PC ning IP manzili yoki tunnel manzilini kiriting!');
+      document.getElementById('workerHostInput')?.focus();
+      return;
+    }
+
+    btnSaveWorker.disabled = true;
+    btnSaveWorker.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saqlanmoqda...';
+
+    try {
+      const payload = {
+        name: name || `Worker PC #${currentWorkers.length + 1}`,
+        host,
+        startPort,
+        count,
+        endpoints
+      };
+
+      let res;
+      if (editId) {
+        res = await fetch(`/api/workers/${editId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch('/api/workers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        addLog(`Worker PC "${payload.name}" saqlandi va ulanish tekshirilmoqda.`, 'success');
+        document.getElementById('workerModal')?.classList.add('hidden');
+        await fetchInstances();
+      } else {
+        alert(data.error || 'Worker PC ni saqlashda xatolik yuz berdi');
+      }
+    } catch (err) {
+      alert('Tarmoq xatosi: ' + err.message);
+    } finally {
+      btnSaveWorker.disabled = false;
+      btnSaveWorker.innerHTML = 'Saqlash & Ulanish';
+    }
+  });
+}
+
+const btnQuickAddWorker = document.getElementById('btnQuickAddWorker');
+if (btnQuickAddWorker) {
+  btnQuickAddWorker.addEventListener('click', openAddWorkerModal);
 }
 
 // Boshlang'ich yuklash
