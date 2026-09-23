@@ -165,12 +165,36 @@ export class AdbManager {
   }
 
   /**
+   * Qurilma holatini tekshirish ('device', 'offline', 'unauthorized')
+   */
+  async getState(device: string): Promise<string> {
+    try {
+      const { stdout } = await execPromise(`${this.adbPath} -s ${device} get-state`, { timeout: 3000 });
+      return stdout.trim();
+    } catch {
+      return 'offline';
+    }
+  }
+
+  /**
    * APK faylni qurilmaga o'rnatish
    */
   async installApk(device: string, apkPath: string): Promise<{ success: boolean; message: string }> {
     try {
+      let state = await this.getState(device);
+      if (state !== 'device') {
+        // Agar offline bo'lsa, reconnect qilib qayta urinib ko'ramiz
+        await execPromise(`${this.adbPath} -s ${device} reconnect`, { timeout: 3000 }).catch(() => {});
+        await new Promise(r => setTimeout(r, 1500));
+        state = await this.getState(device);
+        if (state !== 'device') {
+          return { success: false, message: `Qurilma hozirda '${state}' holatida. Tizim to'liq yuklanmaguncha kuting.` };
+        }
+      }
+
       const { stdout, stderr } = await execPromise(
-        `${this.adbPath} -s ${device} install -r -g "${apkPath.replace(/"/g, '\\"')}"`
+        `${this.adbPath} -s ${device} install -r -g "${apkPath.replace(/"/g, '\\"')}"`,
+        { timeout: 60000 }
       );
       const combined = (stdout + ' ' + stderr).trim();
       if (combined.includes('Success')) {

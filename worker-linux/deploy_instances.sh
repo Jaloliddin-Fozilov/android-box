@@ -97,30 +97,19 @@ for ((i=1; i<=COUNT; i++)); do
       - /dev/binderfs:/dev/binderfs
     devices:
       - /dev/kvm:/dev/kvm
-EOF
-
-    # Videokarta mavjud bo'lsa avtomatik ulash (GPU tezlatish)
-    if [ -d /dev/dri ]; then
-        cat <<EOF >> "$COMPOSE_FILE"
-      - /dev/dri:/dev/dri
-EOF
-    fi
-
-    cat <<EOF >> "$COMPOSE_FILE"
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 850M
+          cpus: '1.5'
+          memory: 1400M
         reservations:
-          memory: 300M
+          memory: 400M
     command:
-      - androidboot.redroid_width=540
-      - androidboot.redroid_height=960
-      - androidboot.redroid_dpi=160
+      - androidboot.redroid_width=720
+      - androidboot.redroid_height=1280
+      - androidboot.redroid_dpi=240
       - androidboot.redroid_fps=15
-      - androidboot.redroid_gpu_mode=auto
-      - androidboot.use_memfd=1
+      - androidboot.redroid_gpu_mode=guest
       - ro.product.brand=${BRAND}
       - ro.product.model=${MODEL}
       - ro.product.name=${DEVICE}
@@ -149,9 +138,9 @@ if ! DOCKER_API_VERSION="$DOCKER_API_VERSION" docker compose -f "$COMPOSE_FILE" 
     sudo apt-get update -y && sudo apt-get install --only-upgrade docker-ce-cli docker-compose-plugin -y 2>/dev/null || true
     docker compose -f "$COMPOSE_FILE" up -d || {
         echo "Konteynerlar to'g'ridan-to'g'ri docker run orqali ishga tushirilmoqda..."
-        DRI_OPT=""
-        if [ -d /dev/dri ]; then
-            DRI_OPT="--device /dev/dri:/dev/dri"
+        KVM_OPT=""
+        if [ -e /dev/kvm ]; then
+            KVM_OPT="--device /dev/kvm:/dev/kvm"
         fi
         for ((i=1; i<=COUNT; i++)); do
             PORT=$((START_PORT + i - 1))
@@ -164,23 +153,42 @@ if ! DOCKER_API_VERSION="$DOCKER_API_VERSION" docker compose -f "$COMPOSE_FILE" 
                 -p "${PORT}:5555" \
                 -v "${INSTANCE_DATA}:/data" \
                 -v "/dev/binderfs:/dev/binderfs" \
-                --device "/dev/kvm:/dev/kvm" \
-                $DRI_OPT \
-                --cpus="1.0" \
-                --memory="850M" \
+                $KVM_OPT \
+                --cpus="1.5" \
+                --memory="1400M" \
                 redroid/redroid:11.0.0-latest \
-                androidboot.redroid_width=540 \
-                androidboot.redroid_height=960 \
-                androidboot.redroid_dpi=160 \
+                androidboot.redroid_width=720 \
+                androidboot.redroid_height=1280 \
+                androidboot.redroid_dpi=240 \
                 androidboot.redroid_fps=15 \
-                androidboot.redroid_gpu_mode=auto \
-                androidboot.use_memfd=1 2>/dev/null || true
+                androidboot.redroid_gpu_mode=guest 2>/dev/null || true
         done
     }
 fi
 
-echo -e "\nInstansiyalar yuklanishini kutish va ADB ulanishlarini tekshirish..."
-sleep 5
+echo -e "\nInstansiyalar to'liq yuklanishi kutilmoqda (Android Boot Completed)..."
+for ((i=1; i<=COUNT; i++)); do
+    PORT=$((START_PORT + i - 1))
+    echo -n "  Box #$i (port $PORT) yuklanmoqda"
+    BOOT_OK=false
+    for attempt in {1..35}; do
+        adb connect "127.0.0.1:$PORT" > /dev/null 2>&1 || true
+        STATE=$(adb -s "127.0.0.1:$PORT" get-state 2>/dev/null || echo "offline")
+        if [ "$STATE" = "device" ]; then
+            BOOT=$(adb -s "127.0.0.1:$PORT" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            if [ "$BOOT" = "1" ]; then
+                echo " -> TAYYOR (online)!"
+                BOOT_OK=true
+                break
+            fi
+        fi
+        echo -n "."
+        sleep 2
+    done
+    if [ "$BOOT_OK" != true ]; then
+        echo " -> [Kutilmoqda]"
+    fi
+done
 
 echo -e "\n=========================================================================="
 printf "%-16s | %-10s | %-15s | %-12s\n" "Konteyner" "ADB Port" "Telefon Modeli" "Holat"
@@ -201,4 +209,3 @@ done
 
 echo "=========================================================================="
 echo -e "\nBarcha $COUNT ta Android instansiyasi muvaffaqiyatli ko'tarildi!"
-echo -e "Master Server (Mac) ulanishi uchun ushbu kompyuterning IP manzilidan foydalaning."
