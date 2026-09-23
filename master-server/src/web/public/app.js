@@ -727,9 +727,49 @@ const cmdOutput = document.getElementById('cmdOutput');
 const btnClearCmdOutput = document.getElementById('btnClearCmdOutput');
 const btnCopyCmdOutput = document.getElementById('btnCopyCmdOutput');
 
+// Tablar: Android vs Linux Host
+const tabBtnAndroid = document.getElementById('tabBtnAndroid');
+const tabBtnLinux = document.getElementById('tabBtnLinux');
+const tabContentAndroid = document.getElementById('tabContentAndroid');
+const tabContentLinux = document.getElementById('tabContentLinux');
+
+if (tabBtnAndroid && tabBtnLinux) {
+  tabBtnAndroid.addEventListener('click', () => {
+    tabBtnAndroid.classList.add('bg-indigo-600', 'text-white');
+    tabBtnAndroid.classList.remove('text-slate-400');
+    tabBtnLinux.classList.remove('bg-emerald-600', 'text-white');
+    tabBtnLinux.classList.add('text-slate-400');
+    tabContentAndroid.classList.remove('hidden');
+    tabContentLinux.classList.add('hidden');
+    if (cmdInput) cmdInput.focus();
+  });
+
+  tabBtnLinux.addEventListener('click', () => {
+    tabBtnLinux.classList.add('bg-emerald-600', 'text-white');
+    tabBtnLinux.classList.remove('text-slate-400');
+    tabBtnAndroid.classList.remove('bg-indigo-600', 'text-white');
+    tabBtnAndroid.classList.add('text-slate-400');
+    tabContentLinux.classList.remove('hidden');
+    tabContentAndroid.classList.add('hidden');
+
+    const hostInput = document.getElementById('linuxSshHost');
+    const cfgHost = document.getElementById('cfgHost');
+    if (hostInput && !hostInput.value && cfgHost) {
+      hostInput.value = cfgHost.value.trim();
+    }
+    const linuxCmdInput = document.getElementById('linuxCmdInput');
+    if (linuxCmdInput) linuxCmdInput.focus();
+  });
+}
+
 if (btnOpenCommandModal && commandModal) {
   btnOpenCommandModal.addEventListener('click', () => {
     commandModal.classList.remove('hidden');
+    const hostInput = document.getElementById('linuxSshHost');
+    const cfgHost = document.getElementById('cfgHost');
+    if (hostInput && !hostInput.value && cfgHost) {
+      hostInput.value = cfgHost.value.trim();
+    }
     if (cmdInput) cmdInput.focus();
   });
 }
@@ -739,6 +779,96 @@ if (cmdPresetSelect) {
     if (cmdPresetSelect.value && cmdInput) {
       cmdInput.value = cmdPresetSelect.value;
       cmdInput.focus();
+    }
+  });
+}
+
+const linuxPresetSelect = document.getElementById('linuxPresetSelect');
+const linuxCmdInput = document.getElementById('linuxCmdInput');
+const btnExecuteLinuxCommand = document.getElementById('btnExecuteLinuxCommand');
+
+if (linuxPresetSelect && linuxCmdInput) {
+  linuxPresetSelect.addEventListener('change', () => {
+    if (linuxPresetSelect.value) {
+      linuxCmdInput.value = linuxPresetSelect.value;
+      linuxCmdInput.focus();
+    }
+  });
+}
+
+// Saqlangan SSH parolini localStorage dan olish
+if (document.getElementById('linuxSshPass')) {
+  const savedPass = localStorage.getItem('ab_linux_ssh_pass');
+  if (savedPass) document.getElementById('linuxSshPass').value = savedPass;
+}
+
+// Masofaviy Linux buyrug'ini bajarish
+async function executeLinuxCommand() {
+  if (!linuxCmdInput || !cmdOutput) return;
+  const cmd = linuxCmdInput.value.trim();
+  if (!cmd) return;
+
+  const sshHost = document.getElementById('linuxSshHost') ? document.getElementById('linuxSshHost').value.trim() : '';
+  const sshPort = document.getElementById('linuxSshPort') ? document.getElementById('linuxSshPort').value.trim() : '22';
+  const sshUser = document.getElementById('linuxSshUser') ? document.getElementById('linuxSshUser').value.trim() : 'sherzodbek';
+  const sshPass = document.getElementById('linuxSshPass') ? document.getElementById('linuxSshPass').value : '';
+  const methodRadio = document.querySelector('input[name="linuxConnMethod"]:checked');
+  const method = methodRadio ? methodRadio.value : 'ssh';
+
+  if (sshPass) {
+    localStorage.setItem('ab_linux_ssh_pass', sshPass);
+  }
+
+  const timeStr = new Date().toLocaleTimeString();
+  cmdOutput.innerHTML += `\n<span class="text-emerald-400 font-semibold">[${timeStr}] (Linux Host #${method}) $ ${cmd}</span>\n<span class="text-slate-500">Masofaviy Linux serverida bajarilmoqda...</span>\n`;
+  cmdOutput.scrollTop = cmdOutput.scrollHeight;
+
+  try {
+    const res = await fetch('/api/linux/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        command: cmd,
+        method,
+        sshHost,
+        sshPort,
+        sshUser,
+        sshPass
+      })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      const exitBadge = data.code === 0
+        ? '<span class="text-emerald-400 font-bold">[Exit: 0]</span>'
+        : `<span class="text-amber-400 font-bold">[Exit: ${data.code}]</span>`;
+      let text = `${exitBadge} <span class="text-slate-400 text-[10px]">(${data.method?.toUpperCase()})</span>\n`;
+      if (data.stdout) text += `${data.stdout}\n`;
+      if (data.stderr) text += `<span class="text-rose-400">${data.stderr}</span>\n`;
+      if (!data.stdout && !data.stderr) text += '<span class="text-slate-500">(Natija bo\'sh)</span>\n';
+      cmdOutput.innerHTML += text + '\n';
+      addLog(`[Linux Host] "${cmd}" bajarildi.`, 'success');
+    } else {
+      cmdOutput.innerHTML += `<span class="text-red-400 font-bold">[Xatolik]:</span> <span class="text-rose-300">${data.error || 'Noma\'lum xato'}</span>\n\n`;
+      addLog(`[Linux Host] Xatolik: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    cmdOutput.innerHTML += `<span class="text-red-400">[Tarmoq xatosi]: ${err.message}</span>\n\n`;
+    addLog(`[Linux Host] Tarmoq xatosi: ${err.message}`, 'error');
+  }
+
+  cmdOutput.scrollTop = cmdOutput.scrollHeight;
+}
+
+if (btnExecuteLinuxCommand) {
+  btnExecuteLinuxCommand.addEventListener('click', executeLinuxCommand);
+}
+
+if (linuxCmdInput) {
+  linuxCmdInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      executeLinuxCommand();
     }
   });
 }

@@ -8,6 +8,7 @@ import { AdbManager } from './core/adb_manager';
 import { InstancePool, AndroidInstance } from './core/instance_pool';
 import { HumanTouch } from './automation/human_touch';
 import { SocialTasks } from './automation/social_tasks';
+import { SshManager } from './core/ssh_manager';
 
 import * as fs from 'fs';
 import multer from 'multer';
@@ -331,6 +332,75 @@ app.post('/api/commands/exec', async (req: Request, res: Response) => {
   }
 
   res.json({ success: true, command: cleanCmd, results });
+});
+
+// Masofaviy Linux xostida buyruq bajarish (SSH yoki Worker Agent orqali)
+app.post('/api/linux/exec', async (req: Request, res: Response) => {
+  const { command, method = 'auto', sshHost, sshPort, sshUser, sshPass, agentUrl } = req.body;
+  if (!command || typeof command !== 'string' || !command.trim()) {
+    return res.status(400).json({ error: 'Buyruq kiritilmadi' });
+  }
+
+  const cleanCmd = command.trim();
+  broadcastLog(`[Linux Host] Buyruq bajarilmoqda: "${cleanCmd}"`, 'info');
+
+  const effectiveAgentUrl = agentUrl || config.linuxWorker.agentUrl || `http://${config.linuxWorker.host}:5550/exec`;
+
+  // 1. Agar Worker Agent usuli tanlangan bo'lsa
+  if (method === 'agent') {
+    try {
+      const fetchRes = await fetch(effectiveAgentUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cleanCmd })
+      });
+      const data: any = await fetchRes.json();
+      return res.json({ success: true, method: 'agent', ...data });
+    } catch (err: any) {
+      return res.status(500).json({ error: `Worker Agent bilan bog'lanib bo'lmadi (${effectiveAgentUrl}): ${err.message}` });
+    }
+  }
+
+  // 2. SSH orqali bajarish
+  const host = sshHost || config.linuxWorker.ssh?.host || config.linuxWorker.host;
+  const port = parseInt(sshPort || config.linuxWorker.ssh?.port || 22);
+  const username = sshUser || config.linuxWorker.ssh?.username || 'sherzodbek';
+  const password = sshPass || config.linuxWorker.ssh?.password || '';
+
+  try {
+    const result = await SshManager.executeCommand({
+      host,
+      port,
+      username,
+      password: password || undefined
+    }, cleanCmd, 25000);
+
+    return res.json({
+      success: result.code === 0,
+      method: 'ssh',
+      stdout: result.stdout,
+      stderr: result.stderr,
+      code: result.code
+    });
+  } catch (sshErr: any) {
+    // Agar SSH ulanmasa va auto rejim bo'lsa, Agent portini ham sinab ko'ramiz
+    if (method === 'auto') {
+      try {
+        const fetchRes = await fetch(effectiveAgentUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cleanCmd }),
+          signal: AbortSignal.timeout(3000)
+        });
+        const data: any = await fetchRes.json();
+        return res.json({ success: true, method: 'agent', ...data });
+      } catch {}
+    }
+
+    return res.status(500).json({
+      error: `Linux xostiga SSH orqali ulanishda xato (${username}@${host}:${port}): ${sshErr.message}`
+    });
+  }
 });
 
 // Guruhli vazifani ishga tushirish (Like, Comment, Follow, Warmup)

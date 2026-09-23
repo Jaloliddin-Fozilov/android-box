@@ -381,15 +381,27 @@
 
   <!-- 5. Masofaviy Terminal / Buyruq Bajarish Modali -->
   <div id="commandModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-3">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-terminal text-sky-400"></i> Masofaviy ADB Terminal & Buyruqlar
-        </h3>
+        <div class="flex items-center space-x-3">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-terminal text-sky-400"></i> Masofaviy Buyruqlar Markazi
+          </h3>
+          <!-- Tablar: Android vs Linux Host -->
+          <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs">
+            <button id="tabBtnAndroid" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white font-medium transition flex items-center gap-1.5">
+              <i class="fa-brands fa-android"></i> Android Qutilari
+            </button>
+            <button id="tabBtnLinux" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white font-medium transition flex items-center gap-1.5">
+              <i class="fa-brands fa-linux"></i> Linux Server (Host)
+            </button>
+          </div>
+        </div>
         <button class="modal-close text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <div class="space-y-3 text-xs">
+      <!-- 1-TAB: ANDROID ADB SHELL -->
+      <div id="tabContentAndroid" class="space-y-3 text-xs">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-slate-300 font-medium mb-1">Nishon Qurilmalar:</label>
@@ -402,52 +414,119 @@
             </select>
           </div>
           <div>
-            <label class="block text-slate-300 font-medium mb-1">Tayyor Buyruq Shablonlari:</label>
+            <label class="block text-slate-300 font-medium mb-1">Android Shablonlari:</label>
             <select id="cmdPresetSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
               <option value="">-- Shablonni tanlang --</option>
               <option value="pm list packages -3">📦 O'rnatilgan ilovalar (pm list packages -3)</option>
-              <option value="getprop ro.product.model; getprop ro.build.version.release">📱 Telefon modeli va Android versiyasi</option>
-              <option value="df -h /data">💾 Xotira hajmi va bo'sh joy (df -h /data)</option>
-              <option value="dumpsys battery">🔋 Batareya holati (dumpsys battery)</option>
-              <option value="wm size; wm density">📐 Ekran o'lchami va DPI (wm size)</option>
-              <option value="ip addr show eth0">🌐 Tarmoq va IP holati (ip addr)</option>
-              <option value="top -n 1 -m 6">⚡️ CPU va RAM iste'moli (top)</option>
+              <option value="getprop ro.product.model; getprop ro.build.version.release">📱 Telefon modeli va versiyasi</option>
+              <option value="df -h /data">💾 Disk va bo'sh joy (df -h /data)</option>
+              <option value="dumpsys battery">🔋 Batareya holati</option>
+              <option value="wm size; wm density">📐 Ekran o'lchami va DPI</option>
+              <option value="top -n 1 -m 6">⚡️ CPU & RAM (top)</option>
               <option value="am start -a android.intent.action.VIEW -d &quot;https://google.com&quot;">🌍 Brauzerda link ochish</option>
-              <option value="reboot">🔄 Konteynerni qayta yuklash (reboot)</option>
+              <option value="reboot">🔄 Konteynerni qayta yuklash</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label class="block text-slate-300 font-medium mb-1">ADB Shell Buyrug'i:</label>
+          <label class="block text-slate-300 font-medium mb-1">Android Shell Buyrug'i:</label>
           <div class="relative">
             <span class="absolute left-3 top-2.5 text-sky-400 font-mono text-xs select-none">$</span>
             <input type="text" id="cmdInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-7 pr-24 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-sky-500" placeholder="Masalan: pm list packages -3 yoki dumpsys battery">
-            <button id="btnExecuteCommand" class="absolute right-1.5 top-1.5 px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-md text-xs font-semibold transition flex items-center gap-1">
+            <button id="btnExecuteCommand" class="absolute right-1.5 top-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-semibold transition flex items-center gap-1">
               <i class="fa-solid fa-play text-[10px]"></i> Bajarish
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- Terminal Chiqishi (Output) -->
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="text-slate-300 font-medium">Terminal Natijasi (Output):</label>
+      <!-- 2-TAB: LINUX HOST TERMINAL -->
+      <div id="tabContentLinux" class="hidden space-y-3 text-xs">
+        <!-- Linux Ulanish Sozlamalari (Akkordeon/Kichik) -->
+        <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300 font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i> Linux Ulanish (SSH / Agent)
+            </span>
             <div class="flex items-center gap-2">
-              <button id="btnClearCmdOutput" class="text-[11px] text-slate-400 hover:text-white transition">
-                <i class="fa-solid fa-trash-can mr-1"></i> Tozalash
-              </button>
-              <button id="btnCopyCmdOutput" class="text-[11px] text-slate-400 hover:text-white transition">
-                <i class="fa-solid fa-copy mr-1"></i> Nusxalash
-              </button>
+              <label class="flex items-center gap-1 text-slate-400 cursor-pointer">
+                <input type="radio" name="linuxConnMethod" value="ssh" checked class="text-indigo-600">
+                <span>SSH (22)</span>
+              </label>
+              <label class="flex items-center gap-1 text-slate-400 cursor-pointer">
+                <input type="radio" name="linuxConnMethod" value="agent" class="text-indigo-600">
+                <span>Agent (5550)</span>
+              </label>
             </div>
           </div>
-          <div id="cmdOutput" class="bg-black/95 rounded-xl p-3 border border-slate-800 font-mono text-[11px] text-emerald-400 h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed select-text font-mono">Kutmoqda... Buyruq kiriting va 'Bajarish' tugmasini bosing.</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <span class="text-[10px] text-slate-400 block mb-0.5">Xost / IP:</span>
+              <input type="text" id="linuxSshHost" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs font-mono" placeholder="127.0.0.1 / IP">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400 block mb-0.5">SSH Port:</span>
+              <input type="number" id="linuxSshPort" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs font-mono" value="22">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400 block mb-0.5">Foydalanuvchi:</span>
+              <input type="text" id="linuxSshUser" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs font-mono" value="sherzodbek">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400 block mb-0.5">Parol (Sudo):</span>
+              <input type="password" id="linuxSshPass" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs font-mono" placeholder="••••••••">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-slate-300 font-medium mb-1">Linux Tayyor Buyruqlari:</label>
+            <select id="linuxPresetSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+              <option value="">-- Linux buyruq shablonini tanlang --</option>
+              <option value="sudo docker ps --format &quot;table {{.Names}}\t{{.Status}}\t{{.Ports}}&quot;">🐳 Docker konteynerlar holati (docker ps)</option>
+              <option value="sudo docker logs --tail 25 android_box_1">📋 Box #1 Docker loglarini ko'rish</option>
+              <option value="sudo docker stats --no-stream">⚡️ Server CPU & RAM iste'moli (docker stats)</option>
+              <option value="free -h; df -h /">💾 Xotira va Disk hajmi (free -h; df -h)</option>
+              <option value="uptime; hostname -I">⏱ Server ishlash vaqti va IP manzillari</option>
+              <option value="ls -la /dev/binderfs">🔧 BinderFS drayveri holati (ls /dev/binderfs)</option>
+              <option value="sudo tailscale status">🔒 Tailscale VPN holati</option>
+              <option value="cd ~/Documents/mark/TeslaPro/android-box &amp;&amp; git pull">🚀 Git yangilanishlarini olish (git pull)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Linux Bash Buyrug'i:</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-emerald-400 font-mono text-xs select-none">#</span>
+            <input type="text" id="linuxCmdInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-7 pr-24 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-emerald-500" placeholder="Masalan: sudo docker ps yoki free -h">
+            <button id="btnExecuteLinuxCommand" class="absolute right-1.5 top-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-semibold transition flex items-center gap-1">
+              <i class="fa-solid fa-play text-[10px]"></i> Bajarish
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="flex justify-end pt-2 border-t border-slate-800">
-        <button class="modal-close px-4 py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Yopish</button>
+      <!-- Terminal Chiqishi (Output Konsoli) -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-slate-300 font-medium text-xs">Terminal Konsoli (Output):</label>
+          <div class="flex items-center gap-2">
+            <button id="btnClearCmdOutput" class="text-[11px] text-slate-400 hover:text-white transition">
+              <i class="fa-solid fa-trash-can mr-1"></i> Tozalash
+            </button>
+            <button id="btnCopyCmdOutput" class="text-[11px] text-slate-400 hover:text-white transition">
+              <i class="fa-solid fa-copy mr-1"></i> Nusxalash
+            </button>
+          </div>
+        </div>
+        <div id="cmdOutput" class="bg-black/95 rounded-xl p-3 border border-slate-800 font-mono text-[11px] text-emerald-400 h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed select-text">Kutmoqda... Buyruq kiriting va 'Bajarish' tugmasini bosing.</div>
+      </div>
+
+      <div class="flex justify-end pt-1 border-t border-slate-800">
+        <button class="modal-close px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Yopish</button>
       </div>
     </div>
   </div>

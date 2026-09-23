@@ -8,6 +8,13 @@ export interface AppConfig {
     startPort: number;
     count: number;
     endpoints?: string[];
+    ssh?: {
+      host?: string;
+      port?: number;
+      username?: string;
+      password?: string;
+    };
+    agentUrl?: string;
   };
   adbPath: string;
   antiBan: {

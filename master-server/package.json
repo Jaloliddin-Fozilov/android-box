@@ -9,9 +9,11 @@
     "dev": "ts-node src/index.ts"
   },
   "dependencies": {
+    "@types/ssh2": "^1.15.6",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "multer": "^2.4.0",
+    "ssh2": "^1.17.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
