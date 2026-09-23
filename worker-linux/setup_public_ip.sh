@@ -27,9 +27,23 @@ if [ -z "$PUB_IP" ]; then
 fi
 echo -e "${GREEN}>>> Sizning Public (Tashqi) IP manzilingiz: ${YELLOW}$PUB_IP${NC}"
 
-# 2. Ichki lokal IP
-LOCAL_IP=$(hostname -I | awk '{print $1}')
-echo -e "\n${CYAN}[2/4] Ichki lokal IP aniqlandi: ${YELLOW}$LOCAL_IP${NC}"
+# 2. Ichki lokal IP ni to'g'ri aniqlash (Docker 172.17.x larni chetlab o'tish)
+DEFAULT_IFACE=$(ip route show default 2>/dev/null | awk '{print $5; exit}' || ip route get 1.1.1.1 2>/dev/null | grep -oP 'dev \K\S+' || true)
+LOCAL_IP=""
+if [ -n "$DEFAULT_IFACE" ]; then
+  LOCAL_IP=$(ip -4 addr show "$DEFAULT_IFACE" 2>/dev/null | grep -oP 'inet \K[\d.]+' | head -n 1 || true)
+fi
+
+if [ -z "$LOCAL_IP" ]; then
+  LOCAL_IP=$(hostname -I | tr ' ' '\n' | grep -v '^172\.1[6-9]\.' | grep -v '^172\.2[0-9]\.' | grep -v '^172\.3[0-1]\.' | grep -v '^127\.' | grep -v '^10\.88\.' | head -n 1 || true)
+fi
+
+if [ -z "$LOCAL_IP" ]; then
+  LOCAL_IP=$(hostname -I | awk '{print $1}')
+fi
+
+echo -e "\n${CYAN}[2/4] Asosiy tarmoq interfeysi: ${YELLOW}${DEFAULT_IFACE:-aniqlanmadi}${NC}"
+echo -e "${CYAN}      Haqiqiy ichki lokal IP: ${GREEN}$LOCAL_IP${NC} (Routerdagi IP)"
 
 # 3. Linux Firewall (UFW)
 echo -e "\n${CYAN}[3/4] Linux xavfsizlik devorida (UFW) ADB portlari ochilmoqda...${NC}"
@@ -45,7 +59,7 @@ fi
 COUNT=${1:-4}
 START_PORT=${2:-5555}
 
-echo -e "\n${CYAN}[4/4] Routerda UPnP orqali portlarni tashqariga ochish tekshirilmoqda...${NC}"
+echo -e "\n${CYAN}[4/4] Routerda UPnP orqali portlarni ochish sinovi...${NC}"
 if ! command -v upnpc &> /dev/null; then
   echo -e "miniupnpc dasturi o'rnatilmoqda..."
   sudo apt-get update -qq >/dev/null 2>&1 || true
@@ -54,11 +68,17 @@ fi
 
 UPNP_SUCCESS=false
 if command -v upnpc &> /dev/null; then
-  echo -e "Router bilan bog'lanish va UPnP portlarni yo'naltirish..."
+  UPNPC_CMD="upnpc"
+  if [ -n "$DEFAULT_IFACE" ]; then
+    UPNPC_CMD="upnpc -m $DEFAULT_IFACE"
+  fi
+
+  echo -e "Router bilan bog'lanish tekshirilmoqda ($UPNPC_CMD)..."
   for ((i=0; i<COUNT; i++)); do
     PORT=$((START_PORT + i))
-    if upnpc -r $PORT TCP >/dev/null 2>&1; then
-      echo -e "  ${GREEN} Port $PORT -> $LOCAL_IP:$PORT routerda muvaffaqiyatli ochildi!${NC}"
+    # Avval lokal IP ni aniq berib yo'naltirish, keyin standart -r
+    if $UPNPC_CMD -a "$LOCAL_IP" $PORT $PORT TCP >/dev/null 2>&1 || $UPNPC_CMD -r $PORT TCP >/dev/null 2>&1; then
+      echo -e "  ${GREEN} Port $PORT -> $LOCAL_IP:$PORT routerda ochildi!${NC}"
       UPNP_SUCCESS=true
     else
       echo -e "  ${YELLOW}⚠ Port $PORT UPnP orqali ochilmadi.${NC}"
