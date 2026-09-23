@@ -131,9 +131,37 @@ done
 
 echo "[OK] docker-compose.generated.yml yaratildi."
 
-# Docker Compose orqali barcha instansiyalarni ko'tarish
-echo -e "\nDocker konteynerlari ishga tushirilmoqda..."
-docker compose -f "$COMPOSE_FILE" up -d
+# Docker API versiyasini daemon bilan sinxronlash (client 1.43 too old xatosini oldini olish)
+SERVER_API=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "1.44")
+export DOCKER_API_VERSION="${SERVER_API:-1.44}"
+
+echo -e "\nDocker konteynerlari ishga tushirilmoqda (Docker API: $DOCKER_API_VERSION)..."
+if ! docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+    echo -e "\n[OGOHLANTIRISH] docker compose orqali yuklashda API versiya xatosi bo'ldi."
+    echo -e "Docker-compose yangilanmoqda yoki to'g'ridan-to'g'ri 'docker run' orqali yuklanmoqda..."
+    sudo apt-get update -y && sudo apt-get install --only-upgrade docker-ce-cli docker-compose-plugin -y 2>/dev/null || true
+    docker compose -f "$COMPOSE_FILE" up -d || {
+        echo "Konteynerlar to'g'ridan-to'g'ri docker run orqali ishga tushirilmoqda..."
+        for ((i=1; i<=COUNT; i++)); do
+            PORT=$((START_PORT + i - 1))
+            CONTAINER_NAME="android_box_${i}"
+            INSTANCE_DATA="$DATA_BASE_DIR/box_${i}"
+            docker run -d \
+                --name "$CONTAINER_NAME" \
+                --privileged \
+                --restart unless-stopped \
+                -p "${PORT}:5555" \
+                -v "${INSTANCE_DATA}:/data" \
+                -v "/dev/binderfs:/dev/binderfs" \
+                --device "/dev/kvm:/dev/kvm" \
+                redroid/redroid:11.0.0-latest \
+                androidboot.redroid_width=720 \
+                androidboot.redroid_height=1280 \
+                androidboot.redroid_fps=25 \
+                androidboot.redroid_gpu_mode=auto 2>/dev/null || true
+        done
+    }
+fi
 
 echo -e "\nInstansiyalar yuklanishini kutish va ADB ulanishlarini tekshirish..."
 sleep 5

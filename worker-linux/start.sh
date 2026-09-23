@@ -28,6 +28,9 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# Docker API versiyasini eksport qilish (client too old xatosini oldini olish uchun)
+export DOCKER_API_VERSION="${DOCKER_API_VERSION:-1.44}"
+
 # 1-qadam: Agar Docker yoki BinderFS o'rnatilmagan bo'lsa, setup_host.sh ni chaqirish
 if ! command -v docker &> /dev/null || [ ! -d /dev/binderfs ]; then
     echo -e "\n${YELLOW}[1/3] Birlamchi muhit (Docker & BinderFS) o'rnatilmoqda...${NC}"
