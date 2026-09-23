@@ -52,13 +52,39 @@ echo ""
 echo "======================================================"
 echo "       BARCHA 4 TA QURILMA TUNNELLARI TAYYOR!         "
 echo "======================================================"
-echo "Quyidagi manzillarni nusxalang va Mac Dashboard'dagi"
-echo "Sozlamalar (Gear) > 'Alohida Tunnel Endpoints' oynasiga qo'ying:"
-echo ""
 
-for url in "${URLS[@]}"; do
-  echo "$url"
+# Master Serverga avtomatik hisobot berish (CURL orqali)
+JSON_ENDPOINTS="["
+for ((u=0; u<${#URLS[@]}; u++)); do
+  JSON_ENDPOINTS+="\"${URLS[$u]}\""
+  if [ $u -lt $((${#URLS[@]} - 1)) ]; then
+    JSON_ENDPOINTS+=","
+  fi
 done
+JSON_ENDPOINTS+="]"
+
+echo -n "Mac Master Serverga avtomatik ulanmoqda..."
+REPORT_OK=false
+for MASTER_URL in "https://links-baptist-retrieve-promised.trycloudflare.com" "http://localhost:3000"; do
+  RES=$(curl -s --max-time 5 -X POST "$MASTER_URL/api/workers/report-tunnels" \
+    -H "Content-Type: application/json" \
+    -d "{\"workerId\": \"pc_1\", \"endpoints\": $JSON_ENDPOINTS}" 2>/dev/null || true)
+  if echo "$RES" | grep -q "true"; then
+    REPORT_OK=true
+    break
+  fi
+done
+
+if [ "$REPORT_OK" = true ]; then
+  echo " -> MUVAFFAQIYATLI ULINDI! 🎉"
+  echo ">>> Master Dashboard'da barcha 4 ta quti bir zumda ONLINE bo'ldi!"
+else
+  echo ""
+  echo "Quyidagi manzillarni Mac Dashboard'dagi 'Tahrirlash' > 'Alohida Tunnel Endpoints'ga qo'ying:"
+  for url in "${URLS[@]}"; do
+    echo "$url"
+  done
+fi
 
 echo ""
 echo "------------------------------------------------------"

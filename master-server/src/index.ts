@@ -134,6 +134,40 @@ app.delete('/api/workers/:id', (req: Request, res: Response) => {
   res.json({ success: true, workers: config.workers });
 });
 
+// Worker Linux dan avtomatik tunnel endpoints qabul qilish
+app.post('/api/workers/report-tunnels', (req: Request, res: Response) => {
+  const { workerId, endpoints } = req.body;
+  if (!Array.isArray(endpoints) || endpoints.length === 0) {
+    return res.status(400).json({ error: 'Endpoints ro\'yxati kiritilmadi' });
+  }
+
+  const targetId = workerId || (config.workers[0] ? config.workers[0].id : 'pc_1');
+  const idx = config.workers.findIndex(w => w.id === targetId);
+
+  if (idx !== -1) {
+    config.workers[idx].endpoints = endpoints;
+    config.workers[idx].count = endpoints.length;
+  } else {
+    config.workers.push({
+      id: targetId,
+      name: 'Linux Worker (Tunnel)',
+      host: 'tunnel',
+      startPort: 5555,
+      count: endpoints.length,
+      endpoints
+    });
+  }
+
+  config = saveConfig({ workers: config.workers });
+  pool.setupWorkers(config.workers);
+  broadcastLog(`[Avto-Tunnel] Worker uchun ${endpoints.length} ta tunnel ulandi!`, 'success');
+  pool.refreshAll().then(instances => {
+    broadcast({ type: 'instances_update', instances, workers: config.workers });
+  });
+
+  res.json({ success: true, count: endpoints.length, workers: config.workers });
+});
+
 // ipify orqali tashqi Public IP ni olish
 app.get('/api/ipify', async (_req: Request, res: Response) => {
   try {
