@@ -2,7 +2,7 @@
 # Android Box - Windows LDPlayer -> Mac Master Server Ulovchi Skript
 # ==============================================================================
 param (
-    [string]$MasterUrl = "https://democrats-deliver-value-richardson.trycloudflare.com"
+    [string]$MasterUrl = "https://intl-theatre-insurance-offset.trycloudflare.com"
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
