@@ -3,7 +3,6 @@
 # Android Box - Professional All-in-One Runner (Linux)
 # ==============================================================================
 
-# Xatolik yuz berganda skript to'xtab qolmasligi uchun
 set +e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,68 +24,66 @@ echo -e "${BLUE}  Android Box - 100% Avtomatlashtirilgan Ishga Tushirish  ${NC}"
 echo -e "${BLUE}  Qurilmalar soni: ${COUNT} ta                        ${NC}"
 echo -e "${BLUE}======================================================${NC}"
 
-# 1. Oldingi barcha jarayonlarni tozalash
+# 1. Oldingi xizmatlarni va konteynerlarni to'xtatish
 echo -e "\n${YELLOW}[1/4] Eskilar to'xtatilmoqda va tozalanmoqda...${NC}"
 pkill -f "start_tunnels.sh" 2>/dev/null || true
 pkill -f "ssh.*tcp@a.pinggy.io" 2>/dev/null || true
 docker rm -f $(docker ps -aq --filter "name=android_box") 2>/dev/null || true
 
-# 2. BinderFS ruxsatlarini berish
-chmod 666 /dev/binderfs/* 2>/dev/null || true
-chmod 666 /dev/binder /dev/hwbinder /dev/vndbinder 2>/dev/null || true
+# 2. BinderFS va KVM ruxsatlarini berish
+echo -e "\n${YELLOW}[2/4] Tizim drayverlari (BinderFS & KVM) sozlanmoqda...${NC}"
+mkdir -p /dev/binderfs
+if ! mountpoint -q /dev/binderfs; then
+    mount -t binder binder /dev/binderfs 2>/dev/null || true
+fi
+chmod 666 /dev/binderfs/* /dev/binder /dev/hwbinder /dev/vndbinder /dev/kvm 2>/dev/null || true
 
-# 3. Docker konteynerlarini to'g'ridan-to'g'ri va ishonchli ko'tarish
-echo -e "\n${YELLOW}[2/4] ${COUNT} ta Android Box konteyneri ishga tushirilmoqda...${NC}"
-KVM_OPT=""
-if [ -e /dev/kvm ]; then
-    KVM_OPT="--device /dev/kvm:/dev/kvm"
+# 3. deploy_instances.sh orqali konteynerlarni to'liq konfiguratsiya bilan ko'tarish
+echo -e "\n${YELLOW}[3/4] Konteynerlar yaratilmoqda va ishga tushirilmoqda...${NC}"
+bash deploy_instances.sh --count "$COUNT" --start-port "$START_PORT"
+
+# 4. Mahalliy ADB orqali haqiqatda online bo'lganligini qat'iy tekshirish
+echo -e "\n${YELLOW}[Tekshiruv] Android to'liq yuklanishi kutilmoqda...${NC}"
+adb kill-server >/dev/null 2>&1 || true
+adb start-server >/dev/null 2>&1 || true
+
+ALL_READY=false
+for attempt in {1..30}; do
+    ONLINE_N=0
+    for ((i=1; i<=COUNT; i++)); do
+        P=$((START_PORT + i - 1))
+        adb connect "127.0.0.1:$P" >/dev/null 2>&1 || true
+        S=$(adb -s "127.0.0.1:$P" get-state 2>/dev/null || echo "offline")
+        if [ "$S" = "device" ]; then
+            ONLINE_N=$((ONLINE_N + 1))
+        fi
+    done
+    echo -ne "  Lokal holat: ${ONLINE_N} / ${COUNT} ta qurilma online (kutilmoqda: $attempt/30)... \r"
+    if [ "$ONLINE_N" -eq "$COUNT" ]; then
+        ALL_READY=true
+        break
+    fi
+    sleep 2
+done
+echo ""
+
+if [ "$ALL_READY" != true ]; then
+    echo -e "${RED}[OGOHLANTIRISH] Tizim kutilganidan sekinroq yuklanmoqda.${NC}"
+    echo -e "${YELLOW}Docker konteynerlari holati:${NC}"
+    docker ps --filter "name=android_box" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    echo -e "\n${YELLOW}android_box_1 loglari:${NC}"
+    docker logs --tail 25 android_box_1 2>&1 || true
+    echo ""
+    echo -e "${YELLOW}Lokal ADB holati:${NC}"
+    adb devices
+    echo -e "${RED}Yuklanish to'liq tugamadi, loglarni tekshiring.${NC}"
+    exit 1
 fi
 
-DATA_BASE_DIR="$SCRIPT_DIR/instances_data"
-mkdir -p "$DATA_BASE_DIR"
+echo -e "${GREEN}  BARCHA ${COUNT} TA ANDROID QURILMASI LOKAL TIZIMDA TAYYOR (online)! 🎉${NC}"
 
-for ((i=1; i<=COUNT; i++)); do
-    PORT=$((START_PORT + i - 1))
-    CONTAINER_NAME="android_box_${i}"
-    INSTANCE_DATA="$DATA_BASE_DIR/box_${i}"
-    mkdir -p "$INSTANCE_DATA"
-
-    docker run -d \
-        --name "$CONTAINER_NAME" \
-        --privileged \
-        --restart unless-stopped \
-        -p "${PORT}:5555" \
-        -v "${INSTANCE_DATA}:/data" \
-        -v "/dev/binderfs:/dev/binderfs" \
-        $KVM_OPT \
-        --cpus="1.5" \
-        --memory="1400M" \
-        redroid/redroid:11.0.0-latest \
-        androidboot.redroid_width=720 \
-        androidboot.redroid_height=1280 \
-        androidboot.redroid_dpi=240 \
-        androidboot.redroid_fps=15 \
-        androidboot.redroid_gpu_mode=guest >/dev/null 2>&1 || true
-
-    echo -e "  [+] ${CONTAINER_NAME} (Port $PORT) yaratildi."
-done
-
-# 4. Android yuklanishini kutish (20 soniya)
-echo -e "\n${YELLOW}[3/4] Android tizimi to'liq yuklanishi kutilmoqda (20 soniya)...${NC}"
-for s in {20..1}; do
-    echo -ne "  Kutilmoqda: ${s} soniya...\r"
-    sleep 1
-done
-echo -e "  Android tizimi tayyor!                       "
-
-# ADB portlarini mahalliy tekshirish
-for ((i=1; i<=COUNT; i++)); do
-    PORT=$((START_PORT + i - 1))
-    adb connect "127.0.0.1:$PORT" >/dev/null 2>&1 || true
-done
-
-# 5. 24/7 Tunnellarni ochish va Master Serverga xabar yuborish
-echo -e "\n${YELLOW}[4/4] 24/7 Tunnellar ochilmoqda va Mac Master Serverga ulanmoqda...${NC}"
+# 5. Faqat va faqat qurilmalar online bo'lgach, 24/7 tunnellarni yoqish
+echo -e "\n${YELLOW}[4/4] 24/7 Tunnellar ochilmoqda va Mac Serverga xabar berilmoqda...${NC}"
 TMP_DIR="/tmp/pinggy_tunnels"
 mkdir -p "$TMP_DIR"
 rm -f "$TMP_DIR"/*.log
@@ -144,7 +141,7 @@ fi
 nohup bash "$SCRIPT_DIR/start_tunnels.sh" "$COUNT" "$MASTER_URL" > /tmp/tunnels.log 2>&1 &
 
 echo -e "\n${GREEN}======================================================${NC}"
-echo -e "${GREEN}  TABRIKLAYMIZ! BARCHA ${COUNT} TA BOX ONLINE BO'LDI!       ${NC}"
+echo -e "${GREEN}  TABRIKLAYMIZ! BARCHA ${COUNT} TA BOX MASTER SERVERDA ONLINE!${NC}"
 echo -e "${GREEN}======================================================${NC}"
 echo -e "Mac Master Dashboard'ni oching:"
 echo -e "👉 ${CYAN}${MASTER_URL}${NC}"

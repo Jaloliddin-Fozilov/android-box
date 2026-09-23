@@ -109,7 +109,7 @@ for ((i=1; i<=COUNT; i++)); do
       - androidboot.redroid_height=1280
       - androidboot.redroid_dpi=240
       - androidboot.redroid_fps=15
-      - androidboot.redroid_gpu_mode=guest
+      - androidboot.redroid_gpu_mode=auto
       - ro.product.brand=${BRAND}
       - ro.product.model=${MODEL}
       - ro.product.name=${DEVICE}
@@ -161,7 +161,7 @@ if ! DOCKER_API_VERSION="$DOCKER_API_VERSION" docker compose -f "$COMPOSE_FILE" 
                 androidboot.redroid_height=1280 \
                 androidboot.redroid_dpi=240 \
                 androidboot.redroid_fps=15 \
-                androidboot.redroid_gpu_mode=guest 2>/dev/null || true
+                androidboot.redroid_gpu_mode=auto 2>/dev/null || true
         done
     }
 fi
