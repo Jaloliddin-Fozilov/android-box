@@ -182,45 +182,155 @@ async function openScreenModal(id, title) {
   await refreshScreenShot();
 }
 
+let isFetchingScreen = false;
+const screenLatency = document.getElementById('screenLatency');
+const screenQualitySelect = document.getElementById('screenQuality');
+const touchRippleLayer = document.getElementById('touchRippleLayer');
+
 async function refreshScreenShot() {
-  if (!currentActiveInstanceId) return;
-  screenLoader.classList.remove('hidden');
+  if (!currentActiveInstanceId || isFetchingScreen) return;
+  isFetchingScreen = true;
+  const startTime = Date.now();
+  const quality = screenQualitySelect ? screenQualitySelect.value : 'low';
+
   try {
-    const timestamp = new Date().getTime();
-    screenImage.src = `/api/instances/${currentActiveInstanceId}/screenshot?t=${timestamp}`;
-    screenImage.onload = () => screenLoader.classList.add('hidden');
-    screenImage.onerror = () => {
+    const timestamp = Date.now();
+    const newImg = new Image();
+    newImg.src = `/api/instances/${currentActiveInstanceId}/screenshot?quality=${quality}&t=${timestamp}`;
+
+    newImg.onload = () => {
+      screenImage.src = newImg.src;
       screenLoader.classList.add('hidden');
-      addLog(`[${currentActiveInstanceId}] Skrinshot olishda xatolik (Qurilma oflayn bo'lishi mumkin)`, 'error');
+      isFetchingScreen = false;
+      const latency = Date.now() - startTime;
+      if (screenLatency) {
+        screenLatency.textContent = `${latency} ms`;
+        if (latency < 120) {
+          screenLatency.className = 'text-[10px] bg-slate-800 text-emerald-400 px-1.5 py-0.5 rounded font-mono';
+        } else if (latency < 350) {
+          screenLatency.className = 'text-[10px] bg-slate-800 text-amber-400 px-1.5 py-0.5 rounded font-mono';
+        } else {
+          screenLatency.className = 'text-[10px] bg-slate-800 text-rose-400 px-1.5 py-0.5 rounded font-mono';
+        }
+      }
+    };
+
+    newImg.onerror = () => {
+      screenLoader.classList.add('hidden');
+      isFetchingScreen = false;
     };
   } catch (err) {
     screenLoader.classList.add('hidden');
+    isFetchingScreen = false;
   }
 }
 
-// Interaktiv teginish (Click to Tap)
-screenImage.addEventListener('click', async (e) => {
-  if (!currentActiveInstanceId) return;
+// 100% aniqlikdagi sensor koordinatalarini hisoblash (Letterbox/Pillarbox kompensatsiyasi)
+function getScreenCoords(clientX, clientY) {
   const rect = screenImage.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const clickY = e.clientY - rect.top;
+  const actualW = screenImage.naturalWidth || 720;
+  const actualH = screenImage.naturalHeight || 1280;
+  const imgRatio = actualW / actualH;
+  const elemRatio = rect.width / rect.height;
 
-  // 720x1280 ga o'tkazish
-  const targetX = Math.round((clickX / rect.width) * 720);
-  const targetY = Math.round((clickY / rect.height) * 1280);
+  let renderedW = rect.width;
+  let renderedH = rect.height;
+  let offsetX = 0;
+  let offsetY = 0;
 
-  screenLoader.classList.remove('hidden');
-  try {
-    await fetch(`/api/instances/${currentActiveInstanceId}/touch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'tap', x: targetX, y: targetY })
-    });
-    setTimeout(refreshScreenShot, 400);
-  } catch (err) {
-    screenLoader.classList.add('hidden');
+  if (elemRatio > imgRatio) {
+    renderedW = rect.height * imgRatio;
+    offsetX = (rect.width - renderedW) / 2;
+  } else {
+    renderedH = rect.width / imgRatio;
+    offsetY = (rect.height - renderedH) / 2;
   }
+
+  const relX = clientX - rect.left - offsetX;
+  const relY = clientY - rect.top - offsetY;
+
+  const normX = Math.max(0, Math.min(1, relX / renderedW));
+  const normY = Math.max(0, Math.min(1, relY / renderedH));
+
+  return {
+    x: Math.round(normX * 720),
+    y: Math.round(normY * 1280),
+    cssX: clientX - rect.left,
+    cssY: clientY - rect.top
+  };
+}
+
+// Vizual touch animatsiyasi (Barmoq qayerga tekkanni ko'rsatish)
+function showTouchRipple(x, y) {
+  if (!touchRippleLayer) return;
+  const ripple = document.createElement('div');
+  ripple.className = 'absolute w-8 h-8 -ml-4 -mt-4 rounded-full bg-indigo-400/50 border border-white pointer-events-none animate-ping';
+  ripple.style.left = `${x}px`;
+  ripple.style.top = `${y}px`;
+  touchRippleLayer.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 400);
+}
+
+// Barmoq harakatlari (Sensor & Swipe / Scroll)
+let pointerStart = null;
+
+screenImage.addEventListener('pointerdown', (e) => {
+  if (!currentActiveInstanceId) return;
+  e.preventDefault();
+  const coords = getScreenCoords(e.clientX, e.clientY);
+  pointerStart = {
+    x: coords.x,
+    y: coords.y,
+    cssX: coords.cssX,
+    cssY: coords.cssY,
+    time: Date.now()
+  };
+  showTouchRipple(coords.cssX, coords.cssY);
 });
+
+screenImage.addEventListener('pointerup', async (e) => {
+  if (!currentActiveInstanceId || !pointerStart) return;
+  e.preventDefault();
+  const coords = getScreenCoords(e.clientX, e.clientY);
+  const dx = coords.x - pointerStart.x;
+  const dy = coords.y - pointerStart.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const duration = Math.min(1000, Date.now() - pointerStart.time);
+
+  const startPt = { ...pointerStart };
+  pointerStart = null;
+
+  try {
+    if (dist < 15) {
+      // 1. Oddiy Bosish (TAP)
+      await fetch(`/api/instances/${currentActiveInstanceId}/touch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'tap', x: coords.x, y: coords.y })
+      });
+    } else {
+      // 2. Surish va Varaqlash (SWIPE / SCROLL)
+      await fetch(`/api/instances/${currentActiveInstanceId}/touch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'swipe',
+          x1: startPt.x,
+          y1: startPt.y,
+          x2: coords.x,
+          y2: coords.y,
+          duration: Math.max(180, duration)
+        })
+      });
+    }
+    setTimeout(refreshScreenShot, 200);
+  } catch (err) {}
+});
+
+// Sifat o'zgarganda darhol qayta yuklash
+if (screenQualitySelect) {
+  screenQualitySelect.addEventListener('change', refreshScreenShot);
+}
 
 // Tezkor ilovani ochish
 async function quickApp(id, app) {
@@ -354,10 +464,10 @@ document.getElementById('btnScreenAuto').addEventListener('click', () => {
     document.getElementById('btnScreenAuto').classList.add('bg-indigo-600/30', 'text-indigo-300');
     addLog('Avtomatik ekran yangilanishi o\'chirildi.', 'info');
   } else {
-    screenAutoInterval = setInterval(refreshScreenShot, 1500);
+    screenAutoInterval = setInterval(refreshScreenShot, 400); // 400ms tezkor oqim
     document.getElementById('btnScreenAuto').classList.remove('bg-indigo-600/30', 'text-indigo-300');
     document.getElementById('btnScreenAuto').classList.add('bg-emerald-600/30', 'text-emerald-300');
-    addLog('Avtomatik ekran yangilanishi yoqildi (har 1.5 sek).', 'success');
+    addLog('Jonli oqim faollashdi (400ms - ultra tezkor).', 'success');
   }
 });
 

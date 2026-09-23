@@ -197,33 +197,43 @@
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-4 shadow-2xl space-y-3">
       <div class="flex items-center justify-between pb-2 border-b border-slate-800">
         <div class="flex items-center space-x-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
           <h3 id="screenModalTitle" class="text-sm font-bold text-white">Android Ekran</h3>
+          <span id="screenLatency" class="text-[10px] bg-slate-800 text-emerald-400 px-1.5 py-0.5 rounded font-mono">-- ms</span>
         </div>
-        <button class="modal-close text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <div class="flex items-center gap-2">
+          <!-- Sifat va Tezlik sozlamasi (Adaptive) -->
+          <select id="screenQuality" class="bg-slate-800 border border-slate-700 text-[11px] text-slate-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-indigo-500" title="Internet tezligiga qarab sifatni sozlash">
+            <option value="low" selected>⚡️ Tezkor (Qotmasdan - 15KB)</option>
+            <option value="medium">⚖️ Balans (35KB)</option>
+            <option value="high">💎 HD (Original)</option>
+          </select>
+          <button class="modal-close text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
       </div>
 
-      <!-- Ekran tasviri (Interaktiv bosish mumkin) -->
-      <div class="relative bg-black rounded-xl overflow-hidden aspect-[9/16] flex items-center justify-center border border-slate-800">
-        <img id="screenImage" src="" alt="Screen" class="w-full h-full object-contain cursor-crosshair">
-        <div id="screenLoader" class="absolute inset-0 bg-black/60 flex items-center justify-center hidden">
-          <i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-400"></i>
+      <!-- Ekran tasviri (Interaktiv bosish va surish / swipe) -->
+      <div id="screenContainer" class="relative bg-black rounded-xl overflow-hidden aspect-[9/16] flex items-center justify-center border border-slate-800 select-none touch-none">
+        <img id="screenImage" src="" alt="Screen" class="w-full h-full object-contain cursor-pointer pointer-events-auto" draggable="false">
+        <div id="touchRippleLayer" class="absolute inset-0 pointer-events-none"></div>
+        <div id="screenLoader" class="absolute inset-0 bg-black/40 flex items-center justify-center hidden">
+          <i class="fa-solid fa-spinner fa-spin text-xl text-indigo-400"></i>
         </div>
       </div>
 
-      <!-- Tezkor Tugmalar (Home, Back, Refresh) -->
+      <!-- Tezkor Tugmalar (Home, Back, Refresh, Auto) -->
       <div class="grid grid-cols-4 gap-2 pt-1">
-        <button id="btnScreenBack" class="py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">
+        <button id="btnScreenBack" class="py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
           <i class="fa-solid fa-chevron-left"></i> Orqaga
         </button>
-        <button id="btnScreenHome" class="py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">
+        <button id="btnScreenHome" class="py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
           <i class="fa-solid fa-house"></i> Home
         </button>
-        <button id="btnScreenRefresh" class="py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">
+        <button id="btnScreenRefresh" class="py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
           <i class="fa-solid fa-rotate"></i> Yangilash
         </button>
-        <button id="btnScreenAuto" class="py-2 text-xs font-medium rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300">
-          <i class="fa-solid fa-eye"></i> Auto
+        <button id="btnScreenAuto" class="py-2 text-xs font-medium rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 transition">
+          <i class="fa-solid fa-eye"></i> Jonli Oqim
         </button>
       </div>
     </div>

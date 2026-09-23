@@ -80,32 +80,59 @@ app.get('/api/instances', async (_req: Request, res: Response) => {
   });
 });
 
-// Skrinshot olish
+// Skrinshot olish (Adaptive tezkor kompressiya bilan)
 app.get('/api/instances/:id/screenshot', async (req: Request, res: Response) => {
   const inst = pool.get(req.params.id);
   if (!inst) {
     return res.status(404).send('Instansiya topilmadi');
   }
 
+  const quality = (req.query.quality as string) || 'low'; // Standart: ultra-tezkor (low)
+
   try {
     const pngBuffer = await adb.screencap(inst.serial);
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.send(pngBuffer);
+
+    if (quality === 'raw' || quality === 'high') {
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      return res.send(pngBuffer);
+    }
+
+    // macOS native 'sips' utilitasi orqali lahzada 300KB -> 12KB ga tushirish
+    const tmpPng = `/tmp/screen_${inst.id}_${Date.now()}.png`;
+    const tmpJpg = `/tmp/screen_${inst.id}_${Date.now()}.jpg`;
+
+    await fs.promises.writeFile(tmpPng, pngBuffer);
+    const sipsQuality = quality === 'medium' ? 65 : 45;
+    const sipsWidth = quality === 'medium' ? 540 : 400;
+
+    await execAsync(`sips -s format jpeg -s formatOptions ${sipsQuality} -Z ${sipsWidth} "${tmpPng}" --out "${tmpJpg}" >/dev/null 2>&1`);
+    const jpgBuffer = await fs.promises.readFile(tmpJpg);
+
+    // Vaqtinchalik fayllarni o'chirish
+    fs.unlink(tmpPng, () => {});
+    fs.unlink(tmpJpg, () => {});
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.send(jpgBuffer);
   } catch (err: any) {
     res.status(500).send(`Skrinshot olishda xatolik: ${err.message}`);
   }
 });
 
-// Ekranga teginish (Tap / Touch)
+// Ekranga teginish va surish (Tap & Swipe / Scroll)
 app.post('/api/instances/:id/touch', async (req: Request, res: Response) => {
   const inst = pool.get(req.params.id);
   if (!inst) return res.status(404).json({ error: 'Topilmadi' });
 
-  const { type, x, y } = req.body;
+  const { type, x, y, x1, y1, x2, y2, duration = 280 } = req.body;
   try {
     if (type === 'tap') {
       await adb.tap(inst.serial, x, y);
+      res.json({ success: true });
+    } else if (type === 'swipe') {
+      await adb.swipe(inst.serial, x1, y1, x2, y2, duration);
       res.json({ success: true });
     } else {
       res.status(400).json({ error: 'Noma\'lum touch turi' });
