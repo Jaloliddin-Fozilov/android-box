@@ -131,12 +131,17 @@ done
 
 echo "[OK] docker-compose.generated.yml yaratildi."
 
+# BinderFS huquqlarini hamma foydalanuvchilar (shu jumladan Android) uchun ochish
+chmod 666 /dev/binderfs/* 2>/dev/null || true
+chmod 666 /dev/binder /dev/hwbinder /dev/vndbinder 2>/dev/null || true
+
 # Docker API versiyasini daemon bilan sinxronlash (client 1.43 too old xatosini oldini olish)
 SERVER_API=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "1.44")
 export DOCKER_API_VERSION="${SERVER_API:-1.44}"
 
 echo -e "\nDocker konteynerlari ishga tushirilmoqda (Docker API: $DOCKER_API_VERSION)..."
-if ! docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+DOCKER_API_VERSION="$DOCKER_API_VERSION" docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+if ! DOCKER_API_VERSION="$DOCKER_API_VERSION" docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
     echo -e "\n[OGOHLANTIRISH] docker compose orqali yuklashda API versiya xatosi bo'ldi."
     echo -e "Docker-compose yangilanmoqda yoki to'g'ridan-to'g'ri 'docker run' orqali yuklanmoqda..."
     sudo apt-get update -y && sudo apt-get install --only-upgrade docker-ce-cli docker-compose-plugin -y 2>/dev/null || true
