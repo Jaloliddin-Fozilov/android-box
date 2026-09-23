@@ -1035,6 +1035,37 @@ function openAddWorkerModal() {
   if (modal) modal.classList.remove('hidden');
 }
 
+// ipify.org orqali Public IP ni avtomatik olish
+async function fetchPublicIpify() {
+  const hostInput = document.getElementById('workerHostInput');
+  if (!hostInput) return;
+  const originalVal = hostInput.value;
+  hostInput.value = 'IP olinmoqda...';
+
+  try {
+    const res = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+    if (data && data.ip) {
+      hostInput.value = data.ip;
+      addLog(`[ipify] Public IP aniqlandi: ${data.ip}`, 'info');
+      return;
+    }
+  } catch {}
+
+  try {
+    const res2 = await fetch('/api/ipify');
+    const data2 = await res2.json();
+    if (data2 && data2.ip) {
+      hostInput.value = data2.ip;
+      addLog(`[ipify] Public IP server orqali aniqlandi: ${data2.ip}`, 'info');
+      return;
+    }
+  } catch {}
+
+  hostInput.value = originalVal;
+  alert('ipify orqali Public IP olib bo\'lmadi.');
+}
+
 function editWorker(workerId) {
   const w = currentWorkers.find(x => x.id === workerId);
   if (!w) return;

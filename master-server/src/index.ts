@@ -134,6 +134,17 @@ app.delete('/api/workers/:id', (req: Request, res: Response) => {
   res.json({ success: true, workers: config.workers });
 });
 
+// ipify orqali tashqi Public IP ni olish
+app.get('/api/ipify', async (_req: Request, res: Response) => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(5000) });
+    const data = await response.json();
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Barcha instansiyalar holatini olish
 app.get('/api/instances', async (_req: Request, res: Response) => {
   const instances = await pool.refreshAll();
