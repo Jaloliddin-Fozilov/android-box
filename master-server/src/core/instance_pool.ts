@@ -58,10 +58,20 @@ export class InstancePool {
         });
       } else {
         const count = worker.count || 1;
-        const startPort = worker.startPort || 5555;
+        let cleanHost = worker.host.replace(/^tcp:\/\//, '').trim();
+        let startPort = worker.startPort || 5555;
+        if (cleanHost.includes(':')) {
+          const parts = cleanHost.split(':');
+          cleanHost = parts[0];
+          const parsedPort = parseInt(parts[1], 10);
+          if (!isNaN(parsedPort) && parsedPort > 0) {
+            startPort = parsedPort;
+          }
+        }
+
         for (let i = 1; i <= count; i++) {
           const port = startPort + i - 1;
-          const serial = `${worker.host}:${port}`;
+          const serial = `${cleanHost}:${port}`;
           const id = `${worker.id}_box_${i}`;
 
           this.instances.set(id, {
@@ -69,7 +79,7 @@ export class InstancePool {
             workerId: worker.id,
             workerName: worker.name,
             index: globalIndex++,
-            host: worker.host,
+            host: cleanHost,
             port,
             serial,
             status: 'offline',
