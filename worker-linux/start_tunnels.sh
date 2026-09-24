@@ -15,7 +15,7 @@ else
 fi
 START_PORT=5555
 
-DEFAULT_MASTER_URL="https://intl-theatre-insurance-offset.trycloudflare.com"
+DEFAULT_MASTER_URL="https://lamp-special-surfing-referring.trycloudflare.com"
 TMP_DIR="/tmp/pinggy_tunnels"
 mkdir -p "$TMP_DIR"
 

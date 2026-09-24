@@ -10,7 +10,7 @@ cd "$SCRIPT_DIR"
 
 COUNT=${1:-4}
 START_PORT=5555
-MASTER_URL="https://intl-theatre-insurance-offset.trycloudflare.com"
+MASTER_URL="https://lamp-special-surfing-referring.trycloudflare.com"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
