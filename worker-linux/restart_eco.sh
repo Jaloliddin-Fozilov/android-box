@@ -30,13 +30,9 @@ pkill -f "start_tunnels.sh" 2>/dev/null || true
 pkill -f "ssh.*tcp@a.pinggy.io" 2>/dev/null || true
 docker rm -f $(docker ps -aq --filter "name=android_box") 2>/dev/null || true
 
-# 2. BinderFS va KVM ruxsatlarini berish
+# 2. BinderFS va KVM drayverlarini to'liq yuklash va sozlash
 echo -e "\n${YELLOW}[2/4] Tizim drayverlari (BinderFS & KVM) sozlanmoqda...${NC}"
-mkdir -p /dev/binderfs
-if ! mountpoint -q /dev/binderfs; then
-    mount -t binder binder /dev/binderfs 2>/dev/null || true
-fi
-chmod 666 /dev/binderfs/* /dev/binder /dev/hwbinder /dev/vndbinder /dev/kvm 2>/dev/null || true
+bash "$SCRIPT_DIR/fix_binder.sh"
 
 # 3. deploy_instances.sh orqali konteynerlarni to'liq konfiguratsiya bilan ko'tarish
 echo -e "\n${YELLOW}[3/4] Konteynerlar yaratilmoqda va ishga tushirilmoqda...${NC}"
